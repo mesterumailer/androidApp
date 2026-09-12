@@ -3,7 +3,6 @@ package com.mesterumailer.smsmanager.data
 import android.content.Context
 import com.mesterumailer.smsmanager.model.FilterRule
 import org.json.JSONArray
-import org.json.JSONObject
 
 class FilterRuleRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -24,6 +23,10 @@ class FilterRuleRepository(context: Context) {
         preferences.edit().putString(KEY_RULES, array.toString()).apply()
     }
 
+    fun updateRule(rule: FilterRule) {
+        saveRules(loadRules().map { if (it.categoryId == rule.categoryId) rule else it })
+    }
+
     fun resetToDefaults() = saveRules(defaultRules())
 
     companion object {
@@ -40,6 +43,7 @@ class FilterRuleRepository(context: Context) {
                     "discount", "sale", "offer", "promo", "promotion", "coupon", "%"
                 ),
                 excludedKeywords = listOf("تراکنش", "برداشت", "واریز", "رمز پویا", "کد تایید", "کد تأیید"),
+                minimumAnyMatches = 1,
                 priority = 10
             ),
             FilterRule(
@@ -48,10 +52,11 @@ class FilterRuleRepository(context: Context) {
                 senderContains = listOf("service", "support", "notify", "سرویس"),
                 anyKeywords = listOf(
                     "فعال سازی", "فعالسازی", "غیرفعال سازی", "غیرفعالسازی", "اشتراک", "تمدید",
-                    "قبض", "یادآوری", "اعلان", "درخواست", "پیگیری", "تحویل", "مرسوله",
+                    "قبض", "یادآوری", "اعلان", "درخواست", "تحویل", "مرسوله", "پیگیری",
                     "service", "subscription", "renewal", "support", "notification", "delivery", "tracking"
                 ),
                 excludedKeywords = listOf("تخفیف", "حراج", "برداشت", "واریز", "خرید", "تراکنش"),
+                minimumAnyMatches = 1,
                 priority = 20
             ),
             FilterRule(
@@ -63,8 +68,7 @@ class FilterRuleRepository(context: Context) {
                     "موجودی", "مانده", "شماره پیگیری", "شماره مرجع", "بانک", "شاپرک",
                     "transaction", "purchase", "payment", "withdraw", "deposit", "transfer", "balance", "ref"
                 ),
-                requiredKeywords = emptyList(),
-                excludedKeywords = emptyList(),
+                minimumAnyMatches = 1,
                 priority = 30
             )
         )
