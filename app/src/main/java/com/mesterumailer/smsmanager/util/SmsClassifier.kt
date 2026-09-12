@@ -15,7 +15,10 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         val candidates = rules.mapNotNull { rule ->
             val score = score(rule, normalizedSender, normalizedBody)
             if (score <= 0) null else rule to score
-        }.sortedWith(compareByDescending<Pair<FilterRule, Int>> { it.second }.thenByDescending { it.first.priority })
+        }.sortedWith(
+            compareByDescending<Pair<FilterRule, Int>> { it.second }
+                .thenByDescending { it.first.priority }
+        )
 
         val winningRule = candidates.firstOrNull()?.first
         val category = when (winningRule?.categoryId) {
@@ -25,8 +28,9 @@ class SmsClassifier(private val rules: List<FilterRule>) {
             else -> SmsCategory.UNKNOWN
         }
 
-        val otp = otpRegex.find(normalizeDigits(body))?.value
-        val amount = amountRegex.find(normalizeDigits(body))?.groupValues?.getOrNull(1)
+        val normalizedDigits = normalizeDigits(body)
+        val otp = otpRegex.find(normalizedDigits)?.value
+        val amount = amountRegex.find(normalizedDigits)?.groupValues?.getOrNull(1)
         val confidence = candidates.firstOrNull()?.second?.let { (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f) } ?: 0f
 
         return SmsAnalysis(category = category, otpCode = otp, amount = amount, confidence = confidence)
@@ -36,12 +40,14 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         if (rule.excludedKeywords.any { normalize(it) in body }) return 0
 
         val anyHits = rule.anyKeywords.count { normalize(it) in body }
-        if (rule.anyKeywords.isNotEmpty() && anyHits == 0) return 0
+        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches) return 0
 
         val requiredMisses = rule.requiredKeywords.count { normalize(it) !in body }
         if (requiredMisses > 0) return 0
 
         val senderHits = rule.senderContains.count { normalize(it) in sender }
+        if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return 0
+
         val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3)
         return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
     }
