@@ -2,13 +2,16 @@ package com.mesterumailer.smsmanager.data
 
 import android.content.ContentResolver
 import android.provider.Telephony
+import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsClassifier
 
 class SmsRepository(
     private val contentResolver: ContentResolver,
-    private val classifier: SmsClassifier = SmsClassifier()
+    rules: List<FilterRule>
 ) {
+    private val classifier = SmsClassifier(rules)
+
     fun getInbox(limit: Int = 200): List<SmsMessage> {
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
@@ -32,12 +35,13 @@ class SmsRepository(
 
             while (cursor.moveToNext() && messages.size < limit) {
                 val body = cursor.getString(bodyIndex).orEmpty()
+                val address = cursor.getString(addressIndex).orEmpty()
                 messages += SmsMessage(
                     id = cursor.getLong(idIndex),
-                    address = cursor.getString(addressIndex).orEmpty(),
+                    address = address,
                     body = body,
                     timestamp = cursor.getLong(dateIndex),
-                    analysis = classifier.analyze(body)
+                    analysis = classifier.analyze(address, body)
                 )
             }
         }
