@@ -1,34 +1,66 @@
 package com.mesterumailer.smsmanager.util
 
+import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsAnalysis
 import com.mesterumailer.smsmanager.model.SmsCategory
 
-class SmsClassifier {
+class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
-    private val amountRegex = Regex("(?i)(?:amount|مبلغ|برداشت|واریز|خرید)\\D{0,20}([\\d,.]+)")
+    private val amountRegex = Regex("(?i)(?:amount|مبلغ|برداشت|واریز|خرید|پرداخت)\\D{0,20}([\\d,.]+)")
 
-    fun analyze(body: String): SmsAnalysis {
-        val text = body.lowercase()
-        val otp = if (containsAny(text, "otp", "verification", "verify", "کد تایید", "کد تأیید", "رمز یکبار مصرف", "رمز پویا")) {
-            otpRegex.find(body)?.value
-        } else null
+    fun analyze(address: String, body: String): SmsAnalysis {
+        val normalizedBody = normalize(body)
+        val normalizedSender = normalize(address)
 
-        val amount = amountRegex.find(body)?.groupValues?.getOrNull(1)
+        val candidates = rules.mapNotNull { rule ->
+            val score = score(rule, normalizedSender, normalizedBody)
+            if (score <= 0) null else rule to score
+        }.sortedWith(compareByDescending<Pair<FilterRule, Int>> { it.second }.thenByDescending { it.first.priority })
 
-        return when {
-            otp != null -> SmsAnalysis(SmsCategory.OTP, otpCode = otp, confidence = 0.97f)
-            containsAny(text, "transaction", "purchase", "payment", "withdraw", "deposit", "card", "تراکنش", "خرید", "پرداخت", "برداشت", "واریز", "بانک", "موجودی") ->
-                SmsAnalysis(SmsCategory.TRANSACTION, amount = amount, confidence = 0.92f)
-            containsAny(text, "delivery", "delivered", "tracking", "shipment", "ارسال", "تحویل", "مرسوله", "پیگیری", "پست", "پیک") ->
-                SmsAnalysis(SmsCategory.DELIVERY, confidence = 0.88f)
-            containsAny(text, "service", "subscription", "اشتراک", "سرویس", "فعالسازی", "فعال سازی", "غیرفعال سازی") ->
-                SmsAnalysis(SmsCategory.SERVICE, confidence = 0.78f)
-            containsAny(text, "offer", "discount", "sale", "promo", "حراج", "تخفیف", "پیشنهاد ویژه", "باشگاه مشتریان") ->
-                SmsAnalysis(SmsCategory.PROMOTION, confidence = 0.85f)
-            else -> SmsAnalysis(SmsCategory.UNKNOWN)
+        val winningRule = candidates.firstOrNull()?.first
+        val category = when (winningRule?.categoryId) {
+            "promotion" -> SmsCategory.PROMOTION
+            "service" -> SmsCategory.SERVICE
+            "transaction" -> SmsCategory.TRANSACTION
+            else -> SmsCategory.UNKNOWN
         }
+
+        val otp = otpRegex.find(normalizeDigits(body))?.value
+        val amount = amountRegex.find(normalizeDigits(body))?.groupValues?.getOrNull(1)
+        val confidence = candidates.firstOrNull()?.second?.let { (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f) } ?: 0f
+
+        return SmsAnalysis(category = category, otpCode = otp, amount = amount, confidence = confidence)
     }
 
-    private fun containsAny(text: String, vararg needles: String): Boolean =
-        needles.any { text.contains(it) }
+    private fun score(rule: FilterRule, sender: String, body: String): Int {
+        if (rule.excludedKeywords.any { normalize(it) in body }) return 0
+
+        val anyHits = rule.anyKeywords.count { normalize(it) in body }
+        if (rule.anyKeywords.isNotEmpty() && anyHits == 0) return 0
+
+        val requiredMisses = rule.requiredKeywords.count { normalize(it) !in body }
+        if (requiredMisses > 0) return 0
+
+        val senderHits = rule.senderContains.count { normalize(it) in sender }
+        val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3)
+        return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
+    }
+
+    private fun normalize(value: String): String = normalizeDigits(value)
+        .lowercase()
+        .replace('ي', 'ی')
+        .replace('ك', 'ک')
+        .replace(Regex("[\u200c\u200d]"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    private fun normalizeDigits(value: String): String = value.map {
+        when (it) {
+            '۰' -> '0'; '۱' -> '1'; '۲' -> '2'; '۳' -> '3'; '۴' -> '4'
+            '۵' -> '5'; '۶' -> '6'; '۷' -> '7'; '۸' -> '8'; '۹' -> '9'
+            '٠' -> '0'; '١' -> '1'; '٢' -> '2'; '٣' -> '3'; '٤' -> '4'
+            '٥' -> '5'; '٦' -> '6'; '٧' -> '7'; '٨' -> '8'; '٩' -> '9'
+            else -> it
+        }
+    }.joinToString("")
 }
