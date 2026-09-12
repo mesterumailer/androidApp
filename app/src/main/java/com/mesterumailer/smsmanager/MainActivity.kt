@@ -196,17 +196,27 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
 
         addView(drawerSectionTitle("صندوق پیامک"))
-        addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true) {
-            drawerLayout.closeDrawer(Gravity.RIGHT)
-        })
+        addView(drawerItem(
+            icon = "▣",
+            title = "پیامک‌های دریافتی",
+            subtitle = "مشاهده و دسته‌بندی Inbox",
+            selected = true,
+            action = { drawerLayout.closeDrawer(Gravity.RIGHT) }
+        ))
 
         addView(drawerSectionTitle("تنظیمات"), LinearLayout.LayoutParams(-1, -2).apply {
             topMargin = dp(16)
         })
-        addView(drawerItem("⚙", "تنظیمات دسته‌بندی", "ویرایش قوانین تشخیص", false) {
-            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            drawerLayout.closeDrawer(Gravity.RIGHT)
-        })
+        addView(drawerItem(
+            icon = "⚙",
+            title = "تنظیمات دسته‌بندی",
+            subtitle = "ویرایش قوانین تشخیص",
+            selected = false,
+            action = {
+                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                drawerLayout.closeDrawer(Gravity.RIGHT)
+            }
+        ))
 
         addView(TextView(this@MainActivity).apply {
             text = "فازهای بعدی"
@@ -405,19 +415,17 @@ class MainActivity : Activity() {
     private fun categoryTextColor(category: SmsCategory): Int = when (category) {
         SmsCategory.TRANSACTION -> Color.rgb(27, 116, 79)
         SmsCategory.PROMOTION -> Color.rgb(181, 67, 67)
-        SmsCategory.SERVICE -> Color.rgb(98, 66, 160)
+        SmsCategory.SERVICE -> Color.rgb(104, 73, 166)
         SmsCategory.OTP -> accent
-        SmsCategory.DELIVERY -> Color.rgb(59, 104, 139)
+        SmsCategory.DELIVERY -> Color.rgb(55, 91, 117)
         SmsCategory.UNKNOWN -> secondaryText
     }
 
-    private fun roundedBackground(color: Int, radiusDp: Int): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(radiusDp).toFloat()
-        }
-
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private fun roundedBackground(color: Int, radiusDp: Int): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(color)
+        cornerRadius = dp(radiusDp).toFloat()
+    }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -426,4 +434,6 @@ class MainActivity : Activity() {
             else statusView.text = "دسترسی خواندن پیامک‌ها داده نشد."
         }
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
