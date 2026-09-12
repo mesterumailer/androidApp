@@ -10,6 +10,7 @@ data class FilterRule(
     val requiredKeywords: List<String> = emptyList(),
     val anyKeywords: List<String> = emptyList(),
     val excludedKeywords: List<String> = emptyList(),
+    val minimumAnyMatches: Int = 1,
     val priority: Int = 0
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -19,6 +20,7 @@ data class FilterRule(
         put("requiredKeywords", JSONArray(requiredKeywords))
         put("anyKeywords", JSONArray(anyKeywords))
         put("excludedKeywords", JSONArray(excludedKeywords))
+        put("minimumAnyMatches", minimumAnyMatches)
         put("priority", priority)
     }
 
@@ -30,6 +32,7 @@ data class FilterRule(
             requiredKeywords = json.optJSONArray("requiredKeywords").toStringList(),
             anyKeywords = json.optJSONArray("anyKeywords").toStringList(),
             excludedKeywords = json.optJSONArray("excludedKeywords").toStringList(),
+            minimumAnyMatches = json.optInt("minimumAnyMatches", 1).coerceAtLeast(0),
             priority = json.optInt("priority")
         )
 
