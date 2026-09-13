@@ -6,28 +6,35 @@ import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
+import com.mesterumailer.smsmanager.model.SmsCategory
 
 class SettingsActivity : Activity() {
     private lateinit var repository: FilterRuleRepository
+    private lateinit var visibilityRepository: CategoryVisibilityRepository
     private val editors = mutableMapOf<String, RuleEditors>()
+    private val visibilityEditors = mutableMapOf<SmsCategory, CheckBox>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = FilterRuleRepository(this)
+        visibilityRepository = CategoryVisibilityRepository(this)
         setContentView(buildContent())
     }
 
     private fun buildContent(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 24, 24, 24)
+            setPadding(dp(20), dp(24), dp(20), dp(20))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
 
         root.addView(TextView(this).apply {
@@ -35,13 +42,19 @@ class SettingsActivity : Activity() {
             textSize = 26f
         })
         root.addView(TextView(this).apply {
-            text = "قواعد زیر روی پیامک‌های Inbox اعمال می‌شوند. هر بخش را با یک مقدار در هر خط تنظیم کنید."
+            text = "از اینجا می‌توانید مشخص کنید کدام دسته‌بندی‌ها در Inbox نمایش داده شوند و قوانین تشخیص هر دسته را تنظیم کنید."
             textSize = 14f
-            setPadding(0, 8, 0, 20)
+            setPadding(0, dp(8), 0, dp(20))
         })
 
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        repository.loadRules().sortedBy { it.priority }.forEach { rule -> content.addView(buildRuleEditor(rule)) }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+        content.addView(buildVisibilitySection())
+        repository.loadRules().sortedBy { it.priority }.forEach { rule ->
+            content.addView(buildRuleEditor(rule))
+        }
 
         content.addView(Button(this).apply {
             text = "ذخیره همه تغییرات"
@@ -51,7 +64,8 @@ class SettingsActivity : Activity() {
             text = "بازگردانی فیلترهای اولیه"
             setOnClickListener {
                 repository.resetToDefaults()
-                Toast.makeText(this@SettingsActivity, "فیلترهای اولیه بازگردانی شد.", Toast.LENGTH_SHORT).show()
+                visibilityRepository.resetToDefaults()
+                Toast.makeText(this@SettingsActivity, "تنظیمات اولیه بازگردانی شد.", Toast.LENGTH_SHORT).show()
                 recreate()
             }
         })
@@ -62,10 +76,40 @@ class SettingsActivity : Activity() {
         return root
     }
 
+    private fun buildVisibilitySection(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(16), dp(14), dp(16), dp(18))
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(0xFFF6F8FC.toInt())
+            cornerRadius = dp(18).toFloat()
+        }
+
+        addView(TextView(this@SettingsActivity).apply {
+            text = "نمایش دسته‌بندی‌ها"
+            textSize = 20f
+        })
+        addView(TextView(this@SettingsActivity).apply {
+            text = "دسته‌هایی که خاموش شوند از لیست Inbox مخفی می‌شوند، اما پیامک حذف نمی‌شود."
+            textSize = 13f
+            setPadding(0, dp(6), 0, dp(10))
+        })
+
+        SmsCategory.entries.forEach { category ->
+            val checkBox = CheckBox(this@SettingsActivity).apply {
+                text = category.label
+                textSize = 15f
+                isChecked = visibilityRepository.isVisible(category)
+            }
+            visibilityEditors[category] = checkBox
+            addView(checkBox)
+        }
+    }
+
     private fun buildRuleEditor(rule: FilterRule): View {
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 12, 0, 20)
+            setPadding(0, dp(18), 0, dp(20))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         section.addView(TextView(this).apply {
             text = rule.displayName
@@ -88,7 +132,7 @@ class SettingsActivity : Activity() {
         parent.addView(TextView(this).apply {
             text = label
             textSize = 13f
-            setPadding(0, 12, 0, 4)
+            setPadding(0, dp(12), 0, dp(4))
         })
         return EditText(this).also { editor ->
             editor.setText(values.joinToString("\n"))
@@ -102,7 +146,7 @@ class SettingsActivity : Activity() {
         parent.addView(TextView(this).apply {
             text = label
             textSize = 13f
-            setPadding(0, 12, 0, 4)
+            setPadding(0, dp(12), 0, dp(4))
         })
         return EditText(this).also { editor ->
             editor.setText(value.toString())
@@ -124,6 +168,9 @@ class SettingsActivity : Activity() {
             )
         }
         repository.saveRules(rules)
+        visibilityEditors.forEach { (category, checkBox) ->
+            visibilityRepository.setVisible(category, checkBox.isChecked)
+        }
         Toast.makeText(this, "تنظیمات ذخیره شد.", Toast.LENGTH_SHORT).show()
     }
 
@@ -132,6 +179,8 @@ class SettingsActivity : Activity() {
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .distinct()
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private data class RuleEditors(
         val sender: EditText,
