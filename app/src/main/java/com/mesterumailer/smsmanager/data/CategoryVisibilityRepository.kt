@@ -6,21 +6,30 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 class CategoryVisibilityRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun isVisible(category: SmsCategory): Boolean =
-        preferences.getBoolean(category.key(), true)
+    fun isVisible(categoryId: String): Boolean =
+        preferences.getBoolean(key(categoryId), true)
 
-    fun setVisible(category: SmsCategory, visible: Boolean) {
-        preferences.edit().putBoolean(category.key(), visible).apply()
+    fun setVisible(categoryId: String, visible: Boolean) {
+        preferences.edit().putBoolean(key(categoryId), visible).apply()
     }
 
     fun resetToDefaults() {
         preferences.edit().clear().apply()
     }
 
+    fun visibleCategoryIds(categoryIds: Collection<String>): Set<String> =
+        categoryIds.filter(::isVisible).toSet()
+
+    fun isVisible(category: SmsCategory): Boolean =
+        isVisible(category.id)
+
+    fun setVisible(category: SmsCategory, visible: Boolean) =
+        setVisible(category.id, visible)
+
     fun visibleCategories(): Set<SmsCategory> =
         SmsCategory.entries.filter(::isVisible).toSet()
 
-    private fun SmsCategory.key(): String = "visible_${name}"
+    private fun key(categoryId: String): String = "visible_$categoryId"
 
     companion object {
         private const val PREFS_NAME = "category_visibility"
