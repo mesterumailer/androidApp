@@ -6,27 +6,21 @@ import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
-import com.mesterumailer.smsmanager.model.SmsCategory
 
 class SettingsActivity : Activity() {
     private lateinit var repository: FilterRuleRepository
-    private lateinit var visibilityRepository: CategoryVisibilityRepository
     private val editors = mutableMapOf<String, RuleEditors>()
-    private val visibilityEditors = mutableMapOf<SmsCategory, CheckBox>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = FilterRuleRepository(this)
-        visibilityRepository = CategoryVisibilityRepository(this)
         setContentView(buildContent())
     }
 
@@ -38,11 +32,11 @@ class SettingsActivity : Activity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "تنظیمات دسته‌بندی"
+            text = "تنظیمات تشخیص"
             textSize = 26f
         })
         root.addView(TextView(this).apply {
-            text = "از اینجا می‌توانید مشخص کنید کدام دسته‌بندی‌ها در Inbox نمایش داده شوند و قوانین تشخیص هر دسته را تنظیم کنید."
+            text = "از اینجا می‌توانید قوانین تشخیص دسته‌بندی پیام‌ها را تنظیم کنید. فیلتر نمایش دسته‌ها مستقیماً در صفحه اصلی در دسترس است."
             textSize = 14f
             setPadding(0, dp(8), 0, dp(20))
         })
@@ -51,7 +45,6 @@ class SettingsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
-        content.addView(buildVisibilitySection())
         repository.loadRules().sortedBy { it.priority }.forEach { rule ->
             content.addView(buildRuleEditor(rule))
         }
@@ -64,8 +57,7 @@ class SettingsActivity : Activity() {
             text = "بازگردانی فیلترهای اولیه"
             setOnClickListener {
                 repository.resetToDefaults()
-                visibilityRepository.resetToDefaults()
-                Toast.makeText(this@SettingsActivity, "تنظیمات اولیه بازگردانی شد.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SettingsActivity, "قوانین اولیه بازگردانی شد.", Toast.LENGTH_SHORT).show()
                 recreate()
             }
         })
@@ -74,35 +66,6 @@ class SettingsActivity : Activity() {
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return root
-    }
-
-    private fun buildVisibilitySection(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(16), dp(14), dp(16), dp(18))
-        background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(0xFFF6F8FC.toInt())
-            cornerRadius = dp(18).toFloat()
-        }
-
-        addView(TextView(this@SettingsActivity).apply {
-            text = "نمایش دسته‌بندی‌ها"
-            textSize = 20f
-        })
-        addView(TextView(this@SettingsActivity).apply {
-            text = "دسته‌هایی که خاموش شوند از لیست Inbox مخفی می‌شوند، اما پیامک حذف نمی‌شود."
-            textSize = 13f
-            setPadding(0, dp(6), 0, dp(10))
-        })
-
-        SmsCategory.entries.forEach { category ->
-            val checkBox = CheckBox(this@SettingsActivity).apply {
-                text = category.label
-                textSize = 15f
-                isChecked = visibilityRepository.isVisible(category)
-            }
-            visibilityEditors[category] = checkBox
-            addView(checkBox)
-        }
     }
 
     private fun buildRuleEditor(rule: FilterRule): View {
@@ -168,9 +131,6 @@ class SettingsActivity : Activity() {
             )
         }
         repository.saveRules(rules)
-        visibilityEditors.forEach { (category, checkBox) ->
-            visibilityRepository.setVisible(category, checkBox.isChecked)
-        }
         Toast.makeText(this, "تنظیمات ذخیره شد.", Toast.LENGTH_SHORT).show()
     }
 
