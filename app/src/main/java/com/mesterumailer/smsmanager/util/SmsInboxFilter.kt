@@ -6,17 +6,23 @@ import com.mesterumailer.smsmanager.model.SmsMessage
 object SmsInboxFilter {
     fun filter(
         messages: List<SmsMessage>,
-        visibleCategories: Set<SmsCategory>,
+        visibleCategoryIds: Set<String>,
         query: String
     ): List<SmsMessage> {
         val normalizedQuery = normalize(query)
         return messages.filter { message ->
-            message.analysis.category in visibleCategories &&
+            message.analysis.categoryId in visibleCategoryIds &&
                 (normalizedQuery.isBlank() ||
                     normalize(message.body).contains(normalizedQuery) ||
                     normalize(message.address).contains(normalizedQuery))
         }
     }
+
+    fun filter(
+        messages: List<SmsMessage>,
+        visibleCategories: Set<SmsCategory>,
+        query: String
+    ): List<SmsMessage> = filter(messages, visibleCategories.map { it.id }.toSet(), query)
 
     fun normalize(value: String): String = value
         .lowercase()
