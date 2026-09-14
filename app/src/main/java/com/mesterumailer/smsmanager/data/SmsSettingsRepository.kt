@@ -8,6 +8,11 @@ class SmsSettingsRepository(context: Context) {
         const val MIN_LIMIT = 200
         const val MAX_LIMIT = 5000
 
+        // Explicit names used by the UI/repository call sites.
+        const val DEFAULT_INBOX_LIMIT = DEFAULT_LIMIT
+        const val MIN_INBOX_LIMIT = MIN_LIMIT
+        const val MAX_INBOX_LIMIT = MAX_LIMIT
+
         private const val PREFS = "sms_settings"
         private const val KEY_INBOX_LIMIT = "inbox_limit"
     }
