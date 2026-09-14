@@ -12,7 +12,7 @@ class SmsRepository(
 ) {
     private val classifier = SmsClassifier(rules)
 
-    fun getInbox(limit: Int = 200): List<SmsMessage> {
+    fun getInbox(limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT): List<SmsMessage> {
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
             Telephony.Sms._ID,
