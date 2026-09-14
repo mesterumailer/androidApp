@@ -18,6 +18,7 @@ object SmsInboxFilter {
         }
     }
 
+    @JvmName("filterByLegacyCategories")
     fun filter(
         messages: List<SmsMessage>,
         visibleCategories: Set<SmsCategory>,
