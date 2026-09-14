@@ -21,19 +21,23 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         )
 
         val winningRule = candidates.firstOrNull()?.first
-        val category = when (winningRule?.categoryId) {
-            "promotion" -> SmsCategory.PROMOTION
-            "service" -> SmsCategory.SERVICE
-            "transaction" -> SmsCategory.TRANSACTION
-            else -> SmsCategory.UNKNOWN
-        }
+        val categoryId = winningRule?.categoryId ?: SmsCategory.UNKNOWN.id
+        val category = SmsCategory.fromId(categoryId)
 
         val normalizedDigits = normalizeDigits(body)
         val otp = otpRegex.find(normalizedDigits)?.value
         val amount = amountRegex.find(normalizedDigits)?.groupValues?.getOrNull(1)
-        val confidence = candidates.firstOrNull()?.second?.let { (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f) } ?: 0f
+        val confidence = candidates.firstOrNull()?.second?.let {
+            (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
+        } ?: 0f
 
-        return SmsAnalysis(category = category, otpCode = otp, amount = amount, confidence = confidence)
+        return SmsAnalysis(
+            category = category,
+            categoryId = categoryId,
+            otpCode = otp,
+            amount = amount,
+            confidence = confidence
+        )
     }
 
     private fun score(rule: FilterRule, sender: String, body: String): Int {
@@ -56,7 +60,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         .lowercase()
         .replace('ي', 'ی')
         .replace('ك', 'ک')
-        .replace(Regex("[\u200c\u200d]"), " ")
+        .replace(Regex("[\\u200c\\u200d]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
 
