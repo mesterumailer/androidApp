@@ -1,4 +1,4 @@
-package com.mesterumemailer.smsmanager
+package com.mesterumailer.smsmanager
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -7,7 +7,6 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
-import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -32,7 +31,6 @@ class SettingsActivity : Activity() {
     private val page = Color.rgb(246, 248, 252)
     private val primary = Color.rgb(25, 31, 43)
     private val secondary = Color.rgb(103, 112, 129)
-    private val accent = Color.rgb(52, 94, 255)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +54,7 @@ class SettingsActivity : Activity() {
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
         })
         root.addView(TextView(this).apply {
-            text = "هر دسته را جداگانه انتخاب کنید؛ سپس قوانین تشخیص همان دسته را ویرایش، حذف یا دسته جدیدی ایجاد کنید."
+            text = "یک دسته را انتخاب کنید تا قوانین همان دسته را ویرایش یا حذف کنید. برای موارد جدید هم می‌توانید دسته بسازید."
             textSize = 14f
             setTextColor(secondary)
             setPadding(0, dp(8), 0, dp(16))
@@ -74,7 +72,7 @@ class SettingsActivity : Activity() {
             background = roundedBackground(card, 20)
         }
         categoryCard.addView(TextView(this).apply {
-            text = "دسته‌بندی مورد نظر"
+            text = "انتخاب دسته‌بندی"
             textSize = 13f
             setTextColor(secondary)
         })
@@ -152,7 +150,7 @@ class SettingsActivity : Activity() {
         editButton.isEnabled = active
         deleteButton.isEnabled = active
         summary.text = rule?.let {
-            "${it.senderContains.size} فرستنده  •  ${it.requiredKeywords.size} کلمه الزامی  •  ${it.anyKeywords.size} کلمه تشخیصی  •  اولویت ${it.priority}"
+            "${it.senderContains.size} فرستنده  •  ${it.requiredKeywords.size} کلمه الزامی  •  ${it.anyKeywords.size} کلمه تشخیصی  •  ${it.excludedKeywords.size} کلمه ممنوع  •  اولویت ${it.priority}"
         } ?: "دسته‌ای برای ویرایش وجود ندارد."
     }
 
@@ -161,12 +159,15 @@ class SettingsActivity : Activity() {
             hint = "مثلاً بانک، قبض، سفر..."
             setSingleLine(true)
         }
-        dialogWithFields("ساخت دسته جدید", name, null, isNew = true)
+        dialogWithFields("ساخت دسته جدید", name, null, true)
     }
 
     private fun showRuleEditor(rule: FilterRule) {
-        val name = EditText(this).apply { setText(rule.displayName); setSingleLine(true) }
-        dialogWithFields("ویرایش «${rule.displayName}»", name, rule, isNew = false)
+        val name = EditText(this).apply {
+            setText(rule.displayName)
+            setSingleLine(true)
+        }
+        dialogWithFields("ویرایش «${rule.displayName}»", name, rule, false)
     }
 
     private fun dialogWithFields(title: String, name: EditText, original: FilterRule?, isNew: Boolean) {
@@ -183,8 +184,12 @@ class SettingsActivity : Activity() {
             setPadding(dp(4), dp(4), dp(4), dp(4))
             addView(label("نام دسته"))
             addView(name)
-            addView(sender.first); addView(required.first); addView(any.first); addView(excluded.first)
-            addView(minimum.first); addView(priority.first)
+            addView(sender.first); addView(sender.second)
+            addView(required.first); addView(required.second)
+            addView(any.first); addView(any.second)
+            addView(excluded.first); addView(excluded.second)
+            addView(minimum.first); addView(minimum.second)
+            addView(priority.first); addView(priority.second)
         }
         val scroll = ScrollView(this).apply { addView(content) }
         val dialog = AlertDialog.Builder(this)
@@ -193,6 +198,7 @@ class SettingsActivity : Activity() {
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ذخیره", null)
             .create()
+
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val displayName = name.text.toString().trim()
@@ -228,7 +234,7 @@ class SettingsActivity : Activity() {
     private fun confirmDelete(rule: FilterRule) {
         AlertDialog.Builder(this)
             .setTitle("حذف «${rule.displayName}»")
-            .setMessage("این دسته از قوانین تشخیص حذف می‌شود. پیامک‌ها حذف نمی‌شوند و پیام‌های بدون دسته مناسب در «سایر» قرار می‌گیرند.")
+            .setMessage("این دسته از قوانین تشخیص حذف می‌شود. خود پیامک‌ها حذف نمی‌شوند و پیام‌های بدون دسته مناسب در «سایر» قرار می‌گیرند.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("حذف") { _, _ ->
                 repository.deleteRule(rule.categoryId)
@@ -246,22 +252,18 @@ class SettingsActivity : Activity() {
     }
 
     private fun multiEditor(title: String, values: List<String>): Pair<TextView, EditText> {
-        val label = label("$title (هر مورد در یک خط)")
-        val editor = EditText(this).apply {
+        return label("$title (هر مورد در یک خط)") to EditText(this).apply {
             setText(values.joinToString("\n"))
             minLines = 2
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
         }
-        return label to editor
     }
 
     private fun numberEditor(title: String, value: Int): Pair<TextView, EditText> {
-        val label = label(title)
-        val editor = EditText(this).apply {
+        return label(title) to EditText(this).apply {
             setText(value.toString())
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
         }
-        return label to editor
     }
 
     private fun parseLines(value: String): List<String> = value.lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct()
