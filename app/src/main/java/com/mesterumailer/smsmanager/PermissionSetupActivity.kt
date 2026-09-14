@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -110,7 +111,7 @@ class PermissionSetupActivity : Activity() {
             setPadding(dp(12), dp(8), dp(12), 0)
         })
 
-        root.addView(content, ScrollView.LayoutParams(-1, -2))
+        root.addView(content, ViewGroup.LayoutParams(-1, -2))
         return root
     }
 
