@@ -2,7 +2,6 @@ package com.mesterumailer.smsmanager
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -77,9 +76,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (!::listContainer.isInitialized) return
         refreshCategoryFilterButtons()
-        if (checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
-            loadInbox()
-        }
+        if (checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) loadInbox()
     }
 
     private fun buildContent(): DrawerLayout {
@@ -90,7 +87,6 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(18), dp(16), dp(12))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
-
         main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(68)))
         main.addView(TextView(this).apply {
             text = "فاز ۱  •  فقط پیامک‌های دریافتی"
@@ -102,13 +98,11 @@ class MainActivity : Activity() {
         main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(10) })
         main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(112)).apply { bottomMargin = dp(10) })
         main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(4) })
-
         selectionBar = buildSelectionBar()
         main.addView(selectionBar, LinearLayout.LayoutParams(-1, dp(60)).apply {
             topMargin = dp(10)
             bottomMargin = dp(2)
         })
-
         listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -119,7 +113,6 @@ class MainActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
         }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(12) })
-
         drawerLayout.addView(main, DrawerLayout.LayoutParams(-1, -1))
         drawerLayout.addView(buildDrawer(), DrawerLayout.LayoutParams(dp(326), -1).apply { gravity = Gravity.RIGHT })
         return drawerLayout
@@ -276,8 +269,10 @@ class MainActivity : Activity() {
         val definitions = categoryDefinitions()
         val repo = CategoryVisibilityRepository(this)
         val ids = definitions.map { it.first }
-        categoryFilterButtons.keys.retainAll(ids.toSet())
-        if (categoryFilterButtons.size != ids.count { it != SmsCategory.UNKNOWN.id } + 1) createCategoryFilterButtons()
+        if (categoryFilterButtons.size != ids.size) {
+            createCategoryFilterButtons()
+            return
+        }
         categoryFilterButtons.forEach { (id, button) ->
             val visible = repo.isVisible(id)
             button.setTextColor(if (visible) accent else secondaryText)
@@ -286,9 +281,9 @@ class MainActivity : Activity() {
         val visibleCount = ids.count(repo::isVisible)
         filterSummaryView.text = if (visibleCount == ids.size) "همه دسته‌ها" else "$visibleCount دسته فعال"
         val allVisible = ids.all(repo::isVisible)
-        categoryFilterContainer.getChildAt(0)?.let { allButton ->
-            (allButton as TextView).setTextColor(if (allVisible) accent else secondaryText)
-            allButton.background = roundedBackground(if (allVisible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249), 15)
+        (categoryFilterContainer.getChildAt(0) as? TextView)?.apply {
+            setTextColor(if (allVisible) accent else secondaryText)
+            background = roundedBackground(if (allVisible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249), 15)
         }
     }
 
@@ -463,7 +458,6 @@ class MainActivity : Activity() {
         val query = searchInput.text?.toString().orEmpty()
         val visibleMessages = SmsInboxFilter.filter(messages, visibleIds, query)
         statusView.text = if (query.isBlank()) "${visibleMessages.size} پیامک اخیر" else "${visibleMessages.size} نتیجه از ${messages.size} پیامک"
-
         if (visibleMessages.isEmpty()) {
             listContainer.addView(buildEmptyState(query.isNotBlank()))
             updateSelectionBar()
