@@ -31,6 +31,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
+import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
@@ -318,13 +319,13 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             tag = "selection_count"
         })
-        addSelectionAction("همه", "select_all") { toggleSelectAllVisible() }
-        addSelectionAction("کپی", "copy") { copySelectedMessages() }
-        addSelectionAction("اشتراک", "share") { shareSelectedMessages() }
-        addSelectionAction("لغو", "cancel") { clearSelection() }
+        addSelectionAction(this, "همه", "select_all") { toggleSelectAllVisible() }
+        addSelectionAction(this, "کپی", "copy") { copySelectedMessages() }
+        addSelectionAction(this, "اشتراک", "share") { shareSelectedMessages() }
+        addSelectionAction(this, "لغو", "cancel") { clearSelection() }
     }
 
-    private fun addSelectionAction(label: String, tagValue: String, action: () -> Unit) {
+    private fun addSelectionAction(container: LinearLayout, label: String, tagValue: String, action: () -> Unit) {
         val view = TextView(this).apply {
             text = label
             textSize = 12f
@@ -335,7 +336,7 @@ class MainActivity : Activity() {
             tag = tagValue
             setOnClickListener { action() }
         }
-        selectionBar?.addView(view, LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(5) })
+        container.addView(view, LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(5) })
     }
 
     private fun buildDrawer(): LinearLayout = LinearLayout(this).apply {
@@ -433,9 +434,11 @@ class MainActivity : Activity() {
         }
         try {
             currentRules = FilterRuleRepository(this).loadRules()
-            currentMessages = SmsRepository(contentResolver, currentRules).getInbox()
+            val limit = SmsSettingsRepository(this).getInboxLimit()
+            currentMessages = SmsRepository(contentResolver, currentRules).getInbox(limit)
             createCategoryFilterButtons()
             renderMessages(currentMessages)
+            statusView.contentDescription = "صندوق پیامک؛ تا ${limit} پیامک اخیر"
         } catch (securityException: SecurityException) {
             statusView.text = "دسترسی به پیامک‌ها رد شده است."
         } catch (exception: Exception) {
