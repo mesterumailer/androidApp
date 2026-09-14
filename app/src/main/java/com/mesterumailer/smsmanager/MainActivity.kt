@@ -33,7 +33,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
-import com.mesterumailer.smsmanager.util.SmsSearch
+import com.mesterumailer.smsmanager.util.SmsInboxFilter
 import java.util.Date
 
 class MainActivity : Activity() {
@@ -90,7 +90,6 @@ class MainActivity : Activity() {
         }
 
         main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(68)))
-
         main.addView(TextView(this).apply {
             text = "فاز ۱  •  فقط پیامک‌های دریافتی"
             textSize = 13f
@@ -98,7 +97,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, dp(12), 0, dp(8))
         })
-
         main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(62)).apply {
             bottomMargin = dp(10)
         })
@@ -122,9 +120,12 @@ class MainActivity : Activity() {
         val scrollView = ScrollView(this).apply {
             setFillViewport(true)
             isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
         }
-        main.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(12) })
+        main.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f).apply {
+            topMargin = dp(12)
+        })
 
         drawerLayout.addView(main, DrawerLayout.LayoutParams(-1, -1))
         drawerLayout.addView(buildDrawer(), DrawerLayout.LayoutParams(dp(326), -1).apply {
@@ -174,7 +175,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(dp(42), dp(48))
         })
-
         searchInput = EditText(this@MainActivity).apply {
             hint = "جست‌وجو در متن یا نام فرستنده..."
             textSize = 14f
@@ -195,7 +195,6 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         addView(searchInput, LinearLayout.LayoutParams(0, dp(48), 1f))
-
         searchClear = TextView(this@MainActivity).apply {
             text = "×"
             textSize = 24f
@@ -214,7 +213,6 @@ class MainActivity : Activity() {
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(14), dp(10), dp(14), dp(10))
         background = roundedBackground(cardBackground, 20)
-
         val header = LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -259,14 +257,14 @@ class MainActivity : Activity() {
             refreshCategoryFilterButtons()
             renderMessages(currentMessages)
         }
-
         SmsCategory.entries.forEach { category ->
-            addFilterButton(category.label) {
+            val button = addFilterButton(category.label) {
                 val repository = CategoryVisibilityRepository(this@MainActivity)
                 repository.setVisible(category, !repository.isVisible(category))
                 refreshCategoryFilterButtons()
                 renderMessages(currentMessages)
-            }.also { button -> categoryFilterButtons[category] = button }
+            }
+            categoryFilterButtons[category] = button
         }
         refreshCategoryFilterButtons()
     }
@@ -298,8 +296,8 @@ class MainActivity : Activity() {
         }
         val visibleCount = SmsCategory.entries.count(repository::isVisible)
         filterSummaryView.text = if (visibleCount == SmsCategory.entries.size) "همه دسته‌ها" else "$visibleCount دسته فعال"
+        val allVisible = SmsCategory.entries.all(repository::isVisible)
         (categoryFilterContainer.getChildAt(0) as? TextView)?.apply {
-            val allVisible = SmsCategory.entries.all(repository::isVisible)
             setTextColor(if (allVisible) accent else secondaryText)
             background = roundedBackground(
                 if (allVisible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249),
@@ -494,26 +492,23 @@ class MainActivity : Activity() {
         listContainer.removeAllViews()
         val visibleCategories = CategoryVisibilityRepository(this).visibleCategories()
         val query = searchInput.text?.toString().orEmpty()
-        val visibleMessages = messages.filter { message ->
-            message.analysis.category in visibleCategories && (query.isBlank() || SmsSearch.matches(message, query))
-        }
+        val visibleMessages = SmsInboxFilter.filter(messages, visibleCategories, query)
 
-        val hasSearch = query.isNotBlank()
-        statusView.text = if (hasSearch) {
-            "${visibleMessages.size} نتیجه از ${messages.size} پیامک"
-        } else {
+        statusView.text = if (query.isBlank()) {
             "${visibleMessages.size} پیامک اخیر"
+        } else {
+            "${visibleMessages.size} نتیجه از ${messages.size} پیامک"
         }
 
         if (visibleMessages.isEmpty()) {
-            listContainer.addView(buildEmptyState(hasSearch))
+            listContainer.addView(buildEmptyState(query.isNotBlank()))
             updateSelectionBar()
             return
         }
 
         val visibleIds = visibleMessages.map { it.id }.toSet()
         selectedIds.retainAll(visibleIds)
-        visibleMessages.forEach { message -> listContainer.addView(createMessageView(message)) }
+        visibleMessages.forEach { listContainer.addView(createMessageView(it)) }
         updateSelectionBar()
     }
 
@@ -545,6 +540,7 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = roundedBackground(if (selectedIds.contains(message.id)) Color.rgb(238, 243, 255) else cardBackground, 20)
             elevation = dp(1).toFloat()
+
             val header = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -573,12 +569,14 @@ class MainActivity : Activity() {
                 background = roundedBackground(categoryBackground(category), 14)
             })
             addView(header)
+
             addView(TextView(this@MainActivity).apply {
                 text = "${DateFormat.getDateFormat(this@MainActivity).format(Date(message.timestamp))}  •  ${DateFormat.getTimeFormat(this@MainActivity).format(Date(message.timestamp))}"
                 textSize = 11f
                 setTextColor(secondaryText)
                 setPadding(0, dp(5), 0, dp(8))
             })
+
             message.analysis.otpCode?.let { code ->
                 addView(TextView(this@MainActivity).apply {
                     text = "کد تأیید  $code"
@@ -591,6 +589,7 @@ class MainActivity : Activity() {
                     setOnClickListener { copyText(code) }
                 })
             }
+
             message.analysis.amount?.let { amount ->
                 addView(TextView(this@MainActivity).apply {
                     text = "مبلغ  $amount"
@@ -599,6 +598,7 @@ class MainActivity : Activity() {
                     setPadding(0, dp(8), 0, 0)
                 })
             }
+
             addView(TextView(this@MainActivity).apply {
                 text = message.body
                 textSize = 14f
@@ -611,21 +611,17 @@ class MainActivity : Activity() {
                     true
                 }
             })
-            val actions = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-                setPadding(0, dp(8), 0, 0)
-            }
-            actions.addView(TextView(this@MainActivity).apply {
+
+            addView(TextView(this@MainActivity).apply {
                 text = "کپی متن"
                 textSize = 12f
                 setTextColor(secondaryText)
                 setPadding(dp(10), dp(7), dp(10), dp(7))
                 background = roundedBackground(Color.rgb(247, 248, 251), 12)
                 setOnClickListener { copyText(message.body) }
+            }, LinearLayout.LayoutParams(-2, -2).apply {
+                topMargin = dp(8)
             })
-            addView(actions)
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
         }
