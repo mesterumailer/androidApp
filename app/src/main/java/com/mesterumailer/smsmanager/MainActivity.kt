@@ -367,12 +367,12 @@ class MainActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
         addView(drawerSectionTitle("صندوق پیامک"))
-        addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true) { drawerLayout.closeDrawer(Gravity.RIGHT) })
+        addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true, action = { drawerLayout.closeDrawer(Gravity.RIGHT) }))
         addView(drawerSectionTitle("تنظیمات"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
-        addView(drawerItem("⚙", "مدیریت دسته‌بندی‌ها", "ساخت، ویرایش و حذف دسته‌ها", false) {
+        addView(drawerItem("⚙", "مدیریت دسته‌بندی‌ها", "ساخت، ویرایش و حذف دسته‌ها", false, action = {
             startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
             drawerLayout.closeDrawer(Gravity.RIGHT)
-        })
+        }))
         addView(TextView(this@MainActivity).apply {
             text = "فازهای بعدی"
             textSize = 12f
