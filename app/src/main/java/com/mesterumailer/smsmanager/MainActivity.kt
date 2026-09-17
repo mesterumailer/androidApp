@@ -13,6 +13,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.format.DateFormat
@@ -25,6 +27,7 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -39,6 +42,7 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsInboxFilter
 import java.util.Date
+import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
     private val readSmsRequestCode = 1001
@@ -53,6 +57,12 @@ class MainActivity : Activity() {
     private var currentMessages: List<SmsMessage> = emptyList()
     private var currentRules: List<FilterRule> = emptyList()
     private var selectionBar: LinearLayout? = null
+    private lateinit var processingOverlay: FrameLayout
+    private lateinit var processingMessage: TextView
+    private val processingHandler = Handler(Looper.getMainLooper())
+    private val processingExecutor = Executors.newSingleThreadExecutor()
+    private var processingToken = 0L
+    private var processingShowTask: Runnable? = null
 
     private val pageBackground = Color.rgb(246, 248, 252)
     private val cardBackground = Color.WHITE
@@ -107,10 +117,119 @@ class MainActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
         }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
-        drawerLayout.addView(main, DrawerLayout.LayoutParams(-1, -1))
+        val contentFrame = FrameLayout(this).apply {
+            addView(main, FrameLayout.LayoutParams(-1, -1))
+            addView(buildProcessingOverlay(), FrameLayout.LayoutParams(-1, -1))
+        }
+        drawerLayout.addView(contentFrame, DrawerLayout.LayoutParams(-1, -1))
         drawerLayout.addView(buildDrawer(), DrawerLayout.LayoutParams(dp(326), -1).apply { gravity = Gravity.RIGHT })
         return drawerLayout
     }
+
+    private fun buildProcessingOverlay(): FrameLayout = FrameLayout(this).apply {
+        visibility = View.GONE
+        setBackgroundColor(Color.argb(70, 246, 248, 252))
+        isClickable = true
+        isFocusable = true
+        processingOverlay = this
+        val card = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            background = roundedBackground(Color.WHITE, 18)
+            elevation = dp(5).toFloat()
+            addView(ProgressBar(this@MainActivity).apply {
+                isIndeterminate = true
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+            })
+            processingMessage = TextView(this@MainActivity).apply {
+                text = "در حال پردازش..."
+                textSize = 13f
+                setTextColor(primaryText)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                gravity = Gravity.CENTER
+            }
+            addView(processingMessage, LinearLayout.LayoutParams(-2, dp(32)).apply {
+                marginEnd = dp(10)
+            })
+        }
+        addView(card, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+    }
+
+    private fun beginProcessing(message: String) {
+        processingToken += 1L
+        processingShowTask?.let(processingHandler::removeCallbacks)
+        val token = processingToken
+        processingShowTask = Runnable {
+            if (token != processingToken) return@Runnable
+            processingMessage.text = message
+            processingOverlay.visibility = View.VISIBLE
+        }.also {
+            processingHandler.postDelayed(it, 120L)
+        }
+    }
+
+    private fun endProcessing() {
+        processingToken += 1L
+        processingShowTask?.let(processingHandler::removeCallbacks)
+        processingShowTask = null
+        if (::processingOverlay.isInitialized) processingOverlay.visibility = View.GONE
+    }
+
+    private fun requestRender(message: String = "در حال پردازش...") {
+        if (!::listContainer.isInitialized) return
+        beginProcessing(message)
+        val token = processingToken
+        val source = currentMessages
+        val visibleIds = CategoryVisibilityRepository(this)
+            .visibleCategoryIds(categoryDefinitions().map { it.first })
+        val query = searchInput.text?.toString().orEmpty()
+
+        processingExecutor.execute {
+            val filtered = SmsInboxFilter.filter(source, visibleIds, query)
+            runOnUiThread {
+                if (token != processingToken || isFinishing) return@runOnUiThread
+                renderFilteredMessages(filtered, source.size, query, token)
+            }
+        }
+    }
+
+    private fun renderFilteredMessages(
+        visibleMessages: List<SmsMessage>,
+        sourceCount: Int,
+        query: String,
+        token: Long
+    ) {
+        listContainer.removeAllViews()
+        statusView.text = if (query.isBlank()) {
+            visibleMessages.size.toString() + " پیامک اخیر"
+        } else {
+            visibleMessages.size.toString() + " نتیجه از " + sourceCount + " پیامک"
+        }
+
+        val visibleIds = visibleMessages.map { it.id }.toSet()
+        selectedIds.retainAll(visibleIds)
+
+        if (visibleMessages.isEmpty()) {
+            listContainer.addView(buildEmptyState(query.isNotBlank()))
+            updateSelectionBar(visibleMessages)
+            endProcessing()
+            return
+        }
+
+        var index = 0
+        fun appendChunk() {
+            if (token != processingToken || isFinishing) return
+            val end = (index + 24).coerceAtMost(visibleMessages.size)
+            for (i in index until end) listContainer.addView(createMessageView(visibleMessages[i]))
+            index = end
+            updateSelectionBar(visibleMessages)
+            if (index < visibleMessages.size) listContainer.post { appendChunk() } else endProcessing()
+        }
+        appendChunk()
+    }
+
 
     private fun buildToolbar(): View = FrameLayout(this).apply {
         background = roundedBackground(cardBackground, 22)
@@ -176,7 +295,7 @@ class MainActivity : Activity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 searchClear.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
-                renderMessages(currentMessages)
+                requestRender("در حال جست‌وجو...")
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -222,14 +341,14 @@ class MainActivity : Activity() {
             val repo = CategoryVisibilityRepository(this@MainActivity)
             categoryDefinitions().forEach { (id, _) -> repo.setVisible(id, true) }
             refreshCategoryFilterButtons()
-            renderMessages(currentMessages)
+            requestRender("در حال اعمال فیلترها...")
         }
         categoryDefinitions().forEach { (id, label) ->
             categoryFilterButtons[id] = addFilterButton(label) {
                 val repo = CategoryVisibilityRepository(this@MainActivity)
                 repo.setVisible(id, !repo.isVisible(id))
                 refreshCategoryFilterButtons()
-                renderMessages(currentMessages)
+                requestRender("در حال اعمال فیلترها...")
             }
         }
         refreshCategoryFilterButtons()
@@ -405,17 +524,35 @@ class MainActivity : Activity() {
             statusView.text = "برای خواندن Inbox باید اجازه دسترسی به پیامک‌ها را بدهید."
             return
         }
-        try {
-            currentRules = FilterRuleRepository(this).loadRules()
-            val limit = SmsSettingsRepository(this).getInboxLimit()
-            currentMessages = applyMessageOverrides(SmsRepository(contentResolver, currentRules).getInbox(limit))
-            createCategoryFilterButtons()
-            renderMessages(currentMessages)
-            statusView.contentDescription = "صندوق پیامک؛ تا ${limit} پیامک اخیر"
-        } catch (securityException: SecurityException) {
-            statusView.text = "دسترسی به پیامک‌ها رد شده است."
-        } catch (exception: Exception) {
-            statusView.text = "خطا در خواندن پیامک‌ها: ${exception.message ?: "خطای نامشخص"}"
+
+        beginProcessing("در حال خواندن پیامک‌ها...")
+        val token = processingToken
+        processingExecutor.execute {
+            try {
+                val rules = FilterRuleRepository(this).loadRules()
+                val limit = SmsSettingsRepository(this).getInboxLimit()
+                val messages = applyMessageOverrides(SmsRepository(contentResolver, rules).getInbox(limit))
+                runOnUiThread {
+                    if (token != processingToken || isFinishing) return@runOnUiThread
+                    currentRules = rules
+                    currentMessages = messages
+                    createCategoryFilterButtons()
+                    requestRender("در حال نمایش پیام‌ها...")
+                    statusView.contentDescription = "صندوق پیامک؛ تا " + limit + " پیامک اخیر"
+                }
+            } catch (securityException: SecurityException) {
+                runOnUiThread {
+                    if (token != processingToken || isFinishing) return@runOnUiThread
+                    endProcessing()
+                    statusView.text = "دسترسی به پیامک‌ها رد شده است."
+                }
+            } catch (exception: Exception) {
+                runOnUiThread {
+                    if (token != processingToken || isFinishing) return@runOnUiThread
+                    endProcessing()
+                    statusView.text = "خطا در خواندن پیامک‌ها: " + (exception.message ?: "خطای نامشخص")
+                }
+            }
         }
     }
 
@@ -444,21 +581,22 @@ class MainActivity : Activity() {
     }
 
     private fun renderMessages(messages: List<SmsMessage>) {
-        listContainer.removeAllViews()
-        val definitions = categoryDefinitions()
-        val visibleIds = CategoryVisibilityRepository(this).visibleCategoryIds(definitions.map { it.first })
-        val query = searchInput.text?.toString().orEmpty()
-        val visibleMessages = SmsInboxFilter.filter(messages, visibleIds, query)
-        statusView.text = if (query.isBlank()) "${visibleMessages.size} پیامک اخیر" else "${visibleMessages.size} نتیجه از ${messages.size} پیامک"
-        val visibleMessageIds = visibleMessages.map { it.id }.toSet()
-        selectedIds.retainAll(visibleMessageIds)
-        if (visibleMessages.isEmpty()) {
-            listContainer.addView(buildEmptyState(query.isNotBlank()))
-            updateSelectionBar()
+        if (messages === currentMessages) {
+            requestRender()
             return
         }
-        visibleMessages.forEach { listContainer.addView(createMessageView(it)) }
-        updateSelectionBar()
+        beginProcessing()
+        val token = processingToken
+        val visibleIds = CategoryVisibilityRepository(this)
+            .visibleCategoryIds(categoryDefinitions().map { it.first })
+        val query = searchInput.text?.toString().orEmpty()
+        processingExecutor.execute {
+            val filtered = SmsInboxFilter.filter(messages, visibleIds, query)
+            runOnUiThread {
+                if (token != processingToken || isFinishing) return@runOnUiThread
+                renderFilteredMessages(filtered, messages.size, query, token)
+            }
+        }
     }
 
     private fun buildEmptyState(hasSearch: Boolean): View = LinearLayout(this).apply {
@@ -602,15 +740,35 @@ class MainActivity : Activity() {
             .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
                 val selectedId = definitions[which].first
                 MessageOverrideRepository(this).setCategory(message.id, selectedId)
-                currentMessages = applyMessageOverrides(currentMessages)
                 dialog.dismiss()
-                renderMessages(currentMessages)
+                beginProcessing("در حال اعمال دسته‌بندی...")
+                val token = processingToken
+                val snapshot = currentMessages
+                processingExecutor.execute {
+                    val updated = applyMessageOverrides(snapshot)
+                    runOnUiThread {
+                        if (token != processingToken || isFinishing) return@runOnUiThread
+                        currentMessages = updated
+                        requestRender("در حال نمایش پیام‌ها...")
+                        Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
             }
             .setNeutralButton("بازگشت به تشخیص خودکار") { _, _ ->
                 MessageOverrideRepository(this).clearCategory(message.id)
-                currentMessages = applyMessageOverrides(currentMessages)
-                renderMessages(currentMessages)
+                beginProcessing("در حال بازگردانی تشخیص خودکار...")
+                val token = processingToken
+                val snapshot = currentMessages
+                processingExecutor.execute {
+                    val updated = applyMessageOverrides(snapshot)
+                    runOnUiThread {
+                        if (token != processingToken || isFinishing) return@runOnUiThread
+                        currentMessages = updated
+                        requestRender("در حال نمایش پیام‌ها...")
+                        Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("انصراف", null)
@@ -620,7 +778,7 @@ class MainActivity : Activity() {
 
     private fun toggleSelection(id: Long) {
         if (!selectedIds.add(id)) selectedIds.remove(id)
-        renderMessages(currentMessages)
+        requestRender("در حال به‌روزرسانی پیام‌ها...")
     }
 
     private fun toggleSelectAllVisible() {
@@ -628,19 +786,19 @@ class MainActivity : Activity() {
         if (visible.isEmpty()) return
         val ids = visible.map { it.id }.toSet()
         if (ids.all(selectedIds::contains)) selectedIds.removeAll(ids) else selectedIds.addAll(ids)
-        renderMessages(currentMessages)
+        requestRender("در حال به‌روزرسانی انتخاب‌ها...")
     }
 
     private fun clearSelection() {
         selectedIds.clear()
-        renderMessages(currentMessages)
+        requestRender("در حال به‌روزرسانی انتخاب‌ها...")
     }
 
-    private fun updateSelectionBar() {
+    private fun updateSelectionBar(visibleMessages: List<SmsMessage> = visibleMessages()) {
         val bar = selectionBar ?: return
         bar.visibility = if (selectedIds.isEmpty()) View.GONE else View.VISIBLE
         bar.findViewWithTag<TextView>("selection_count")?.text = "${selectedIds.size} پیام"
-        val visible = visibleMessages()
+        val visible = visibleMessages
         val allSelected = visible.isNotEmpty() && visible.all { selectedIds.contains(it.id) }
         bar.findViewWithTag<TextView>("select_all")?.apply {
             text = if (allSelected) "لغو همه" else "همه"
@@ -711,6 +869,12 @@ class MainActivity : Activity() {
         shape = GradientDrawable.RECTANGLE
         setColor(color)
         cornerRadius = dp(radiusDp).toFloat()
+    }
+
+    override fun onDestroy() {
+        processingShowTask?.let(processingHandler::removeCallbacks)
+        processingExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
