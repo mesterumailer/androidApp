@@ -57,8 +57,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          APKSIGNER=$(find "$ANDROID_HOME" -name apksigner -type f | head -n 1)
-          test -n "$APKSIGNER" || { echo "apksigner not found"; exit 1; }
+          APKSIGNER=$(ls -1d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1)
+          test -n "$APKSIGNER" || { echo "apksigner not found in Android build-tools"; exit 1; }
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -n "$APK" || { echo "Release APK not found"; exit 1; }
           "$APKSIGNER" verify --verbose "$APK"
