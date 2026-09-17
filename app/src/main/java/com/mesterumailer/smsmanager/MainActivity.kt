@@ -48,7 +48,6 @@ class MainActivity : Activity() {
     private lateinit var searchInput: EditText
     private lateinit var searchClear: TextView
     private lateinit var categoryFilterContainer: LinearLayout
-    private lateinit var filterSummaryView: TextView
     private val categoryFilterButtons = mutableMapOf<String, TextView>()
     private val selectedIds = linkedSetOf<Long>()
     private var currentMessages: List<SmsMessage> = emptyList()
@@ -89,10 +88,10 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
-        main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(68)))
-        main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(10) })
-        main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(112)).apply { bottomMargin = dp(10) })
-        main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(4) })
+        main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(56)))
+        main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(56)).apply { bottomMargin = dp(8) })
+        main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(82)).apply { bottomMargin = dp(8) })
+        main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(2) })
         selectionBar = buildSelectionBar()
         main.addView(selectionBar, LinearLayout.LayoutParams(-1, dp(60)).apply {
             topMargin = dp(10)
@@ -107,7 +106,7 @@ class MainActivity : Activity() {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
-        }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(12) })
+        }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
         drawerLayout.addView(main, DrawerLayout.LayoutParams(-1, -1))
         drawerLayout.addView(buildDrawer(), DrawerLayout.LayoutParams(dp(326), -1).apply { gravity = Gravity.RIGHT })
         return drawerLayout
@@ -132,9 +131,9 @@ class MainActivity : Activity() {
             setImageResource(android.R.drawable.ic_menu_sort_by_size)
             imageTintList = ColorStateList.valueOf(primaryText)
             background = roundedBackground(Color.TRANSPARENT, 18)
-            setPadding(dp(14), dp(14), dp(14), dp(14))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
             setOnClickListener { drawerLayout.openDrawer(Gravity.RIGHT) }
-            layoutParams = FrameLayout.LayoutParams(dp(56), dp(56), Gravity.RIGHT or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(6) }
+            layoutParams = FrameLayout.LayoutParams(dp(50), dp(50), Gravity.RIGHT or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(4) }
         })
     }
 
@@ -149,7 +148,7 @@ class MainActivity : Activity() {
             textSize = 24f
             setTextColor(accent)
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(42), dp(48))
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(44))
         })
         searchInput = EditText(this@MainActivity).apply {
             hint = "جست‌وجو در متن یا نام فرستنده..."
@@ -191,7 +190,7 @@ class MainActivity : Activity() {
     private fun buildCategoryFilterCard(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
-        setPadding(dp(14), dp(10), dp(14), dp(10))
+        setPadding(dp(14), dp(7), dp(14), dp(7))
         background = roundedBackground(cardBackground, 20)
         addView(TextView(this@MainActivity).apply {
             text = "فیلتر نمایش"
@@ -199,12 +198,6 @@ class MainActivity : Activity() {
             setTextColor(primaryText)
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
         })
-        filterSummaryView = TextView(this@MainActivity).apply {
-            textSize = 11f
-            setTextColor(secondaryText)
-            gravity = Gravity.RIGHT
-        }
-        addView(filterSummaryView, LinearLayout.LayoutParams(-1, dp(18)))
         val horizontal = HorizontalScrollView(this@MainActivity).apply {
             isHorizontalScrollBarEnabled = false
             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -214,7 +207,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(4), 0, dp(2))
+            setPadding(0, dp(2), 0, 0)
         }
         horizontal.addView(categoryFilterContainer, ViewGroup.LayoutParams(-1, -2))
         addView(horizontal, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -246,9 +239,9 @@ class MainActivity : Activity() {
         text = label
         textSize = 12f
         gravity = Gravity.CENTER
-        setPadding(dp(12), dp(8), dp(12), dp(8))
+        setPadding(dp(11), dp(6), dp(11), dp(6))
         setOnClickListener { action() }
-        categoryFilterContainer.addView(this, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(6) })
+        categoryFilterContainer.addView(this, LinearLayout.LayoutParams(-2, dp(34)).apply { marginEnd = dp(6) })
     }
 
     private fun refreshCategoryFilterButtons() {
@@ -264,8 +257,6 @@ class MainActivity : Activity() {
             button.setTextColor(if (visible) accent else secondaryText)
             button.background = roundedBackground(if (visible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249), 15)
         }
-        val visibleCount = ids.count(repo::isVisible)
-        filterSummaryView.text = if (visibleCount == ids.size) "همه دسته‌ها فعال است" else "$visibleCount دسته فعال"
         val allVisible = ids.isNotEmpty() && ids.all(repo::isVisible)
         (categoryFilterContainer.getChildAt(0) as? TextView)?.apply {
             setTextColor(if (allVisible) accent else secondaryText)
@@ -277,14 +268,14 @@ class MainActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
-        setPadding(dp(16), dp(12), dp(12), dp(12))
+        setPadding(dp(12), dp(6), dp(8), dp(6))
         background = roundedBackground(cardBackground, 18)
         statusView = TextView(this@MainActivity).apply {
             text = "در حال آماده‌سازی صندوق پیامک‌ها..."
             textSize = 14f
             setTextColor(secondaryText)
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
         }
         addView(statusView)
         addView(TextView(this@MainActivity).apply {
@@ -295,7 +286,7 @@ class MainActivity : Activity() {
             background = roundedBackground(Color.rgb(239, 243, 255), 16)
             contentDescription = "به‌روزرسانی پیامک‌ها"
             setOnClickListener { loadInbox() }
-            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(8) }
+            layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginStart = dp(8) }
         })
     }
 
