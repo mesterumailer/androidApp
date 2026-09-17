@@ -161,7 +161,7 @@ class MainActivity : Activity() {
             textDirection = View.TEXT_DIRECTION_RTL
             setPadding(dp(4), 0, dp(4), 0)
         }
-        addView(searchInput, LinearLayout.LayoutParams(0, dp(48), 1f))
+        addView(searchInput, LinearLayout.LayoutParams(0, dp(44), 1f))
         searchClear = TextView(this@MainActivity).apply {
             text = "×"
             textSize = 24f
@@ -171,7 +171,7 @@ class MainActivity : Activity() {
             contentDescription = "پاک کردن جست‌وجو"
             setOnClickListener { searchInput.setText("") }
         }
-        addView(searchClear, LinearLayout.LayoutParams(dp(40), dp(48)))
+        addView(searchClear, LinearLayout.LayoutParams(dp(36), dp(44)))
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
