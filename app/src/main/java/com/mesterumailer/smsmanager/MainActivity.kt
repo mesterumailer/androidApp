@@ -2,6 +2,7 @@ package com.mesterumailer.smsmanager
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -30,6 +31,7 @@ import android.widget.Toast
 import androidx.drawerlayout.widget.DrawerLayout
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
+import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.model.FilterRule
@@ -435,7 +437,7 @@ class MainActivity : Activity() {
         try {
             currentRules = FilterRuleRepository(this).loadRules()
             val limit = SmsSettingsRepository(this).getInboxLimit()
-            currentMessages = SmsRepository(contentResolver, currentRules).getInbox(limit)
+            currentMessages = applyMessageOverrides(SmsRepository(contentResolver, currentRules).getInbox(limit))
             createCategoryFilterButtons()
             renderMessages(currentMessages)
             statusView.contentDescription = "صندوق پیامک؛ تا ${limit} پیامک اخیر"
@@ -451,6 +453,23 @@ class MainActivity : Activity() {
         val visibleIds = CategoryVisibilityRepository(this).visibleCategoryIds(ids)
         val query = searchInput.text?.toString().orEmpty()
         return SmsInboxFilter.filter(currentMessages, visibleIds, query)
+    }
+
+    private fun applyMessageOverrides(messages: List<SmsMessage>): List<SmsMessage> {
+        val overrides = MessageOverrideRepository(this)
+        return messages.map { message ->
+            val overrideId = overrides.getCategoryId(message.id)
+            if (overrideId.isNullOrBlank()) {
+                message
+            } else {
+                message.copy(
+                    analysis = message.analysis.copy(
+                        category = SmsCategory.fromId(overrideId),
+                        categoryId = overrideId
+                    )
+                )
+            }
+        }
     }
 
     private fun renderMessages(messages: List<SmsMessage>) {
@@ -566,18 +585,67 @@ class MainActivity : Activity() {
                     true
                 }
             })
-            addView(TextView(this@MainActivity).apply {
-                text = "کپی متن"
-                textSize = 12f
-                setTextColor(secondaryText)
-                setPadding(dp(10), dp(7), dp(10), dp(7))
-                background = roundedBackground(Color.rgb(247, 248, 251), 12)
-                setOnClickListener { copyText(message.body) }
-            }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(8) })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = "دسته‌بندی"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(accent)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedBackground(Color.rgb(239, 243, 255), 12)
+                    contentDescription = "تغییر دسته‌بندی پیام"
+                    setOnClickListener { showCategoryDialog(message) }
+                }, LinearLayout.LayoutParams(-2, dp(40)))
+                addView(TextView(this@MainActivity).apply {
+                    text = "کپی متن"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(secondaryText)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedBackground(Color.rgb(247, 248, 251), 12)
+                    setOnClickListener { copyText(message.body) }
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+            }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
         }
     }
+
+    private fun showCategoryDialog(message: SmsMessage) {
+        val definitions = categoryDefinitions().distinctBy { it.first }
+
+        if (definitions.isEmpty()) {
+            Toast.makeText(this, "هیچ دسته‌ای برای انتخاب وجود ندارد.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val currentId = message.analysis.categoryId
+        val checkedIndex = definitions.indexOfFirst { it.first == currentId }.coerceAtLeast(0)
+        val labels = definitions.map { it.second }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("دسته‌بندی پیام")
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                val selectedId = definitions[which].first
+                MessageOverrideRepository(this).setCategory(message.id, selectedId)
+                currentMessages = applyMessageOverrides(currentMessages)
+                dialog.dismiss()
+                renderMessages(currentMessages)
+                Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton("بازگشت به تشخیص خودکار") { _, _ ->
+                MessageOverrideRepository(this).clearCategory(message.id)
+                currentMessages = applyMessageOverrides(currentMessages)
+                renderMessages(currentMessages)
+                Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("انصراف", null)
+            .show()
+    }
+
 
     private fun toggleSelection(id: Long) {
         if (!selectedIds.add(id)) selectedIds.remove(id)
