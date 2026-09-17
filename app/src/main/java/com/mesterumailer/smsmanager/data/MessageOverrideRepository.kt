@@ -6,13 +6,15 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 class MessageOverrideRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun getCategory(messageId: Long): SmsCategory? =
-        preferences.getString(messageId.toString(), null)?.let { value ->
-            SmsCategory.entries.firstOrNull { it.name == value }
-        }
+    fun getCategoryId(messageId: Long): String? =
+        preferences.getString(messageId.toString(), null)
+
+    fun setCategory(messageId: Long, categoryId: String) {
+        preferences.edit().putString(messageId.toString(), categoryId).apply()
+    }
 
     fun setCategory(messageId: Long, category: SmsCategory) {
-        preferences.edit().putString(messageId.toString(), category.name).apply()
+        setCategory(messageId, category.id)
     }
 
     fun clearCategory(messageId: Long) {
