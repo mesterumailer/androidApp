@@ -69,6 +69,21 @@ class SmsClassifierTest {
         assertEquals(SmsCategory.UNKNOWN, result.category)
     }
 
+
+    @Test
+    fun preservesCustomCategoryIdForUserDefinedRule() {
+        val customRule = FilterRule(
+            categoryId = "custom_bank_cards",
+            displayName = "کارت‌ها",
+            anyKeywords = listOf("کارت ویژه"),
+            minimumAnyMatches = 1
+        )
+        val result = SmsClassifier(listOf(customRule)).analyze("سرویس", "کارت ویژه شما آماده است")
+
+        assertEquals("custom_bank_cards", result.categoryId)
+        assertEquals(SmsCategory.UNKNOWN, result.category)
+    }
+
     @Test
     fun keepsUnmatchedMessageUnknown() {
         val result = classifier.analyze("دوست", "سلام، امروز ساعت 8 حرکت می‌کنیم")
