@@ -162,7 +162,7 @@ class MainActivity : Activity() {
         addView(card, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
     }
 
-    private fun beginProcessing(message: String) {
+    private fun beginProcessing(message: String = "در حال پردازش...") {
         processingToken += 1L
         processingShowTask?.let(processingHandler::removeCallbacks)
         val token = processingToken
@@ -700,7 +700,7 @@ class MainActivity : Activity() {
                 textDirection = View.TEXT_DIRECTION_RTL
                 setLineSpacing(0f, 1.15f)
                 setPadding(0, dp(10), 0, 0)
-                textIsSelectable = true
+                setTextIsSelectable(true)
                 linksClickable = true
                 movementMethod = LinkMovementMethod.getInstance()
                 highlightColor = Color.rgb(222, 230, 255)
