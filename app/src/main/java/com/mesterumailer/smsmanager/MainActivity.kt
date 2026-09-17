@@ -45,6 +45,7 @@ import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsInboxFilter
+import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
 import java.util.concurrent.Executors
 
@@ -734,6 +735,7 @@ class MainActivity : Activity() {
     }
 
     private fun linkifyBody(body: String): CharSequence {
+        if (!SmsTextProcessor.mayContainWebUrl(body)) return body
         val spannable = SpannableString(body)
         Linkify.addLinks(spannable, Linkify.WEB_URLS)
         return spannable
