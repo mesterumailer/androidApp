@@ -86,17 +86,10 @@ class MainActivity : Activity() {
         val main = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(pageBackground)
-            setPadding(dp(16), dp(18), dp(16), dp(12))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(68)))
-        main.addView(TextView(this).apply {
-            text = "فاز ۱  •  فقط پیامک‌های دریافتی"
-            textSize = 13f
-            setTextColor(secondaryText)
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(12), 0, dp(8))
-        })
         main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(10) })
         main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(112)).apply { bottomMargin = dp(10) })
         main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(4) })
@@ -363,11 +356,6 @@ class MainActivity : Activity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                 setPadding(0, dp(6), 0, dp(5))
             })
-            addView(TextView(this@MainActivity).apply {
-                text = "فاز ۱ • فقط پیامک‌های دریافتی"
-                textSize = 12f
-                setTextColor(secondaryText)
-            })
         }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
         addView(drawerSectionTitle("صندوق پیامک"))
         addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true, action = { drawerLayout.closeDrawer(Gravity.RIGHT) }))
@@ -376,14 +364,6 @@ class MainActivity : Activity() {
             startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
             drawerLayout.closeDrawer(Gravity.RIGHT)
         }))
-        addView(TextView(this@MainActivity).apply {
-            text = "فازهای بعدی"
-            textSize = 12f
-            setTextColor(Color.rgb(160, 166, 178))
-            setPadding(dp(4), dp(24), dp(4), dp(8))
-        })
-        addView(drawerItem("◎", "آمار و گزارش‌ها", "به‌زودی", false, null, false))
-        addView(drawerItem("⌕", "تست قوانین", "به‌زودی", false, null, false))
     }
 
     private fun drawerSectionTitle(title: String): TextView = TextView(this).apply {
