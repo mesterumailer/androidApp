@@ -18,6 +18,10 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.format.DateFormat
+import android.text.method.LinkMovementMethod
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.util.Linkify
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -188,9 +192,10 @@ class MainActivity : Activity() {
 
         processingExecutor.execute {
             val filtered = SmsInboxFilter.filter(source, visibleIds, query)
+            val linkifiedBodies = filtered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(filtered, source.size, query, token)
+                renderFilteredMessages(filtered, source.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -199,7 +204,8 @@ class MainActivity : Activity() {
         visibleMessages: List<SmsMessage>,
         sourceCount: Int,
         query: String,
-        token: Long
+        token: Long,
+        linkifiedBodies: Map<Long, CharSequence> = emptyMap()
     ) {
         listContainer.removeAllViews()
         statusView.text = if (query.isBlank()) {
@@ -222,7 +228,10 @@ class MainActivity : Activity() {
         fun appendChunk() {
             if (token != processingToken || isFinishing) return
             val end = (index + 24).coerceAtMost(visibleMessages.size)
-            for (i in index until end) listContainer.addView(createMessageView(visibleMessages[i]))
+            for (i in index until end) {
+                val message = visibleMessages[i]
+                listContainer.addView(createMessageView(message, linkifiedBodies[message.id] ?: message.body))
+            }
             index = end
             updateSelectionBar(visibleMessages)
             if (index < visibleMessages.size) listContainer.post { appendChunk() } else endProcessing()
@@ -592,9 +601,10 @@ class MainActivity : Activity() {
         val query = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
             val filtered = SmsInboxFilter.filter(messages, visibleIds, query)
+            val linkifiedBodies = filtered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(filtered, messages.size, query, token)
+                renderFilteredMessages(filtered, messages.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -619,7 +629,7 @@ class MainActivity : Activity() {
         })
     }
 
-    private fun createMessageView(message: SmsMessage): LinearLayout {
+    private fun createMessageView(message: SmsMessage, preparedBody: CharSequence = message.body): LinearLayout {
         val category = SmsCategory.fromId(message.analysis.categoryId)
         val label = currentRules.firstOrNull { it.categoryId == message.analysis.categoryId }?.displayName ?: category.label
         return LinearLayout(this).apply {
@@ -683,16 +693,16 @@ class MainActivity : Activity() {
                 })
             }
             addView(TextView(this@MainActivity).apply {
-                text = message.body
+                text = preparedBody
                 textSize = 14f
                 setTextColor(Color.rgb(64, 71, 84))
                 textDirection = View.TEXT_DIRECTION_RTL
                 setLineSpacing(0f, 1.15f)
                 setPadding(0, dp(10), 0, 0)
-                setOnLongClickListener {
-                    toggleSelection(message.id)
-                    true
-                }
+                textIsSelectable = true
+                linksClickable = true
+                movementMethod = LinkMovementMethod.getInstance()
+                highlightColor = Color.rgb(222, 230, 255)
             })
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -721,6 +731,12 @@ class MainActivity : Activity() {
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
         }
+    }
+
+    private fun linkifyBody(body: String): CharSequence {
+        val spannable = SpannableString(body)
+        Linkify.addLinks(spannable, Linkify.WEB_URLS)
+        return spannable
     }
 
     private fun showCategoryDialog(message: SmsMessage) {
@@ -753,7 +769,6 @@ class MainActivity : Activity() {
                         Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
                     }
                 }
-                Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
             }
             .setNeutralButton("بازگشت به تشخیص خودکار") { _, _ ->
                 MessageOverrideRepository(this).clearCategory(message.id)
@@ -769,7 +784,6 @@ class MainActivity : Activity() {
                         Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
                     }
                 }
-                Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("انصراف", null)
             .show()
