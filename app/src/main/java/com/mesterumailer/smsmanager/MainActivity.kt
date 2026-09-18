@@ -42,6 +42,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
+import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
@@ -52,7 +53,7 @@ import java.util.Calendar
 import java.util.concurrent.Executors
 
 class MainActivity : BaseActivity() {
-    private val readSmsRequestCode = 1001
+    private val smsPermissionRequestCode = 1001
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var listContainer: LinearLayout
     private lateinit var statusView: TextView
@@ -80,8 +81,9 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(buildContent())
-        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.READ_SMS), readSmsRequestCode)
+        handleNotificationIntent(intent)
+        if (!hasRequiredSmsPermissions()) {
+            requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
         } else {
             loadInbox()
         }
@@ -90,7 +92,7 @@ class MainActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         if (!::listContainer.isInitialized) return
-        if (checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) loadInbox()
+        if (hasRequiredSmsPermissions()) loadInbox()
     }
 
     private fun buildContent(): DrawerLayout {
@@ -553,7 +555,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun loadInbox() {
-        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+        if (!hasRequiredSmsPermissions()) {
             statusView.text = "برای خواندن Inbox باید اجازه دسترسی به پیامک‌ها را بدهید."
             return
         }
@@ -584,6 +586,7 @@ class MainActivity : BaseActivity() {
                     currentRules = rules
                     currentMessages = messages
                     createCategoryFilterButtons()
+                    showPendingNotificationIfReady()
                     requestRender("در حال نمایش پیام‌ها...")
                     statusView.contentDescription = buildReadWindowSummary(readSettings)
                 }
@@ -962,11 +965,81 @@ class MainActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    private fun hasRequiredSmsPermissions(): Boolean =
+        checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: Intent?) {
+        if (intent == null || !intent.hasExtra(SmsNotificationManager.EXTRA_BODY)) return
+        pendingNotificationAddress = intent.getStringExtra(SmsNotificationManager.EXTRA_ADDRESS).orEmpty()
+        pendingNotificationBody = intent.getStringExtra(SmsNotificationManager.EXTRA_BODY).orEmpty()
+        pendingNotificationTimestamp = intent.getLongExtra(SmsNotificationManager.EXTRA_TIMESTAMP, 0L)
+        pendingNotificationCategoryLabel =
+            intent.getStringExtra(SmsNotificationManager.EXTRA_CATEGORY_LABEL).orEmpty()
+        if (::listContainer.isInitialized) showPendingNotificationIfReady()
+    }
+
+    private fun showPendingNotificationIfReady() {
+        val body = pendingNotificationBody ?: return
+        val address = pendingNotificationAddress.orEmpty()
+        val timestamp = pendingNotificationTimestamp
+        val categoryLabel = currentMessages
+            .firstOrNull {
+                it.address == address &&
+                    it.body == body &&
+                    kotlin.math.abs(it.timestamp - timestamp) <= 120_000L
+            }
+            ?.let { message ->
+                currentRules.firstOrNull { it.categoryId == message.analysis.categoryId }?.displayName
+                    ?: SmsCategory.fromId(message.analysis.categoryId).label
+            }
+            ?.takeIf { it.isNotBlank() }
+            ?: pendingNotificationCategoryLabel?.takeIf { it.isNotBlank() }
+            ?: SmsCategory.UNKNOWN.label
+
+        pendingNotificationBody = null
+        pendingNotificationAddress = null
+        pendingNotificationTimestamp = 0L
+        pendingNotificationCategoryLabel = null
+
+        AlertDialog.Builder(this)
+            .setTitle("پیامک جدید • $categoryLabel")
+            .setMessage(buildString {
+                if (address.isNotBlank()) append("فرستنده: $address\n\n")
+                if (timestamp > 0L) {
+                    append(DateFormat.getDateFormat(this@MainActivity).format(Date(timestamp)))
+                    append("  •  ")
+                    append(DateFormat.getTimeFormat(this@MainActivity).format(Date(timestamp)))
+                    append("\n\n")
+                }
+                append(body)
+            })
+            .setPositiveButton("بستن", null)
+            .show()
+    }
+
+    private var pendingNotificationAddress: String? = null
+    private var pendingNotificationBody: String? = null
+    private var pendingNotificationTimestamp: Long = 0L
+    private var pendingNotificationCategoryLabel: String? = null
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == readSmsRequestCode) {
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) loadInbox()
-            else statusView.text = "دسترسی خواندن پیامک‌ها داده نشد."
+        if (requestCode != smsPermissionRequestCode) return
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            loadInbox()
+        } else {
+            statusView.text = "دسترسی‌های لازم پیامک فعال نشد."
         }
     }
 
