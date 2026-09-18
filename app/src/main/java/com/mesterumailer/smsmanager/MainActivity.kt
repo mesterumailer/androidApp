@@ -185,8 +185,10 @@ class MainActivity : BaseActivity() {
         beginProcessing(message)
         val token = processingToken
         val source = currentMessages
+        val activeIds = activeCategoryDefinitions().map { it.first }
         val visibleIds = CategoryVisibilityRepository(this)
-            .visibleCategoryIds(categoryDefinitions().map { it.first })
+            .visibleCategoryIds(activeIds)
+            .intersect(CategoryActivationRepository(this).activeCategoryIds(activeIds))
         val query = searchInput.text?.toString().orEmpty()
 
         processingExecutor.execute {
@@ -563,8 +565,16 @@ class MainActivity : BaseActivity() {
                 val rules = FilterRuleRepository(this).loadRules()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
                 val untilTimestampExclusive = readSettings.untilDateStartMillis?.let(::startOfNextDay)
+                val activeRuleIds = CategoryActivationRepository(this)
+                    .activeCategoryIds(rules.map { it.categoryId })
+                val classificationRules = rules.filter { it.categoryId in activeRuleIds }
+                val blockSettings = SmsBlockRepository(this).getSettings()
+                val blockFilter = com.mesterumailer.smsmanager.util.SmsBlockFilter(
+                    blockedSenders = blockSettings.blockedSenders,
+                    blockedContent = blockSettings.blockedContent
+                )
                 val messages = applyMessageOverrides(
-                    SmsRepository(contentResolver, rules).getInbox(
+                    SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
                         limit = readSettings.limit,
                         untilTimestampExclusive = untilTimestampExclusive
                     )
@@ -612,8 +622,10 @@ class MainActivity : BaseActivity() {
         }.timeInMillis
 
     private fun visibleMessages(): List<SmsMessage> {
-        val ids = categoryDefinitions().map { it.first }
-        val visibleIds = CategoryVisibilityRepository(this).visibleCategoryIds(ids)
+        val ids = activeCategoryDefinitions().map { it.first }
+        val visibleIds = CategoryVisibilityRepository(this)
+            .visibleCategoryIds(ids)
+            .intersect(CategoryActivationRepository(this).activeCategoryIds(ids))
         val query = searchInput.text?.toString().orEmpty()
         return SmsInboxFilter.filter(currentMessages, visibleIds, query)
     }
@@ -642,8 +654,10 @@ class MainActivity : BaseActivity() {
         }
         beginProcessing()
         val token = processingToken
+        val activeIds = activeCategoryDefinitions().map { it.first }
         val visibleIds = CategoryVisibilityRepository(this)
-            .visibleCategoryIds(categoryDefinitions().map { it.first })
+            .visibleCategoryIds(activeIds)
+            .intersect(CategoryActivationRepository(this).activeCategoryIds(activeIds))
         val query = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
             val filtered = SmsInboxFilter.filter(messages, visibleIds, query)
