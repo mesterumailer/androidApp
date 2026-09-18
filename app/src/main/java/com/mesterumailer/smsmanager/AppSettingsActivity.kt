@@ -3,6 +3,9 @@ package com.mesterumailer.smsmanager
 import androidx.appcompat.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
+import android.net.Uri
+import android.os.Build
+import android.media.RingtoneManager
 import android.graphics.Typeface
 import android.graphics.Color
 import android.view.Gravity
@@ -12,6 +15,11 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.app.NotificationManagerCompat
+import com.mesterumailer.smsmanager.data.FilterRuleRepository
+import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
+import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
@@ -22,6 +30,15 @@ import java.util.Calendar
 import java.util.Date
 
 class AppSettingsActivity : BaseActivity() {
+    private val notificationSettingsRepository by lazy { SmsNotificationSettingsRepository(this) }
+    private var pendingSoundCategoryId: String? = null
+    private var pendingSoundCategoryLabel: String? = null
+    private var pendingNotificationCategoryId: String? = null
+
+    companion object {
+        private const val SOUND_PICKER_REQUEST_CODE = 4101
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 4102
+    }
     private val page: Int get() = getColor(R.color.page_background)
     private val card: Int get() = getColor(R.color.card_background)
     private val primary: Int get() = getColor(R.color.primary_text)
@@ -202,6 +219,7 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(inboxCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(TextView(this).apply {
             text = "در «تا امروز»، سقف پیامک‌ها از جدیدترین پیام‌ها محاسبه می‌شود. در «تا تاریخ مشخص»، پیام‌های بعد از تاریخ انتخاب‌شده وارد خواندن نمی‌شوند."
@@ -355,6 +373,221 @@ class AppSettingsActivity : BaseActivity() {
                 if (added) recreate()
             }
             .show()
+    }
+
+    private fun buildNotificationSettingsCard(): View {
+        val definitions = notificationCategoryDefinitions()
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = roundedBackground(card, 22)
+            elevation = dp(1).toFloat()
+
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "اعلان پیامک‌های جدید"
+                textSize = 18f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            })
+
+            val permissionGranted = hasNotificationPermission()
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "برای هر دسته جداگانه اعلان را روشن کنید و یک صدای موجود روی گوشی انتخاب کنید. ویبره نداریم و میزان صدا از تنظیمات اعلان Android پیروی می‌کند. پیش‌فرض هر دسته بدون صداست."
+                textSize = 13f
+                setTextColor(secondary)
+                setLineSpacing(0f, 1.12f)
+                setPadding(0, dp(6), 0, dp(8))
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = if (permissionGranted) "دسترسی اعلان Android: فعال" else "دسترسی اعلان Android: غیرفعال"
+                textSize = 12f
+                setTextColor(if (permissionGranted) accent else secondary)
+                setPadding(0, 0, 0, dp(10))
+            })
+
+            definitions.forEachIndexed { index, (id, label) ->
+                addView(buildNotificationCategoryRow(id, label, index))
+            }
+        }
+    }
+
+    private fun notificationCategoryDefinitions(): List<Pair<String, String>> {
+        val rules = FilterRuleRepository(this).loadRules().sortedByDescending { it.priority }
+        return (
+            rules.map { it.categoryId to it.displayName } +
+                (com.mesterumailer.smsmanager.model.SmsCategory.UNKNOWN.id to
+                    com.mesterumailer.smsmanager.model.SmsCategory.UNKNOWN.label)
+            ).distinctBy { it.first }
+    }
+
+    private fun buildNotificationCategoryRow(categoryId: String, label: String, index: Int): View {
+        val enabled = notificationSettingsRepository.isEnabled(categoryId)
+        val soundUri = notificationSettingsRepository.getSoundUri(categoryId)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rippleSurfaceBackground(getColor(R.color.soft_surface), 16)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = if (index == 0) 0 else dp(6)
+            }
+
+            addView(LinearLayout(this@AppSettingsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+
+                addView(LinearLayout(this@AppSettingsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutDirection = View.LAYOUT_DIRECTION_RTL
+                    setPadding(0, 0, dp(8), 0)
+                    addView(TextView(this@AppSettingsActivity).apply {
+                        text = label
+                        textSize = 14f
+                        setTextColor(primary)
+                        setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                    })
+                    addView(TextView(this@AppSettingsActivity).apply {
+                        text = if (enabled) "اعلان فعال" else "اعلان خاموش"
+                        textSize = 11f
+                        setTextColor(secondary)
+                        setPadding(0, dp(3), 0, 0)
+                    })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+
+                addView(SwitchCompat(this@AppSettingsActivity).apply {
+                    isChecked = enabled
+                    contentDescription = "اعلان ${label}"
+                    setOnCheckedChangeListener { button, checked ->
+                        if (button.isPressed && checked && !hasNotificationPermission()) {
+                            button.isChecked = false
+                            pendingNotificationCategoryId = categoryId
+                            requestNotificationPermission()
+                            return@setOnCheckedChangeListener
+                        }
+                        notificationSettingsRepository.setEnabled(categoryId, checked)
+                        if (checked) {
+                            SmsNotificationManager.ensureChannel(
+                                this@AppSettingsActivity,
+                                categoryId,
+                                label,
+                                notificationSettingsRepository.getSoundUri(categoryId)
+                            )
+                        }
+                    }
+                }, LinearLayout.LayoutParams(dp(52), dp(48)))
+            })
+
+            addView(LinearLayout(this@AppSettingsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                setPadding(0, dp(6), 0, 0)
+
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = "صدای اعلان"
+                    textSize = 12f
+                    setTextColor(secondary)
+                    gravity = Gravity.CENTER_VERTICAL
+                }, LinearLayout.LayoutParams(0, dp(40), 1f))
+
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = soundName(soundUri)
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(accent)
+                    background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                    contentDescription = "انتخاب صدای اعلان برای ${label}"
+                    setOnClickListener { showSoundPicker(categoryId, label) }
+                }, LinearLayout.LayoutParams(-2, dp(40)))
+            })
+        }
+    }
+
+    private fun hasNotificationPermission(): Boolean =
+        NotificationManagerCompat.from(this).areNotificationsEnabled()
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            openNotificationSettings()
+        }
+    }
+
+    private fun openNotificationSettings() {
+        startActivity(
+            Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+            }
+        )
+    }
+
+    private fun showSoundPicker(categoryId: String, label: String) {
+        pendingSoundCategoryId = categoryId
+        pendingSoundCategoryLabel = label
+        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "صدای اعلان «${label}»")
+            notificationSettingsRepository.getSoundUri(categoryId)?.let {
+                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, it)
+            }
+        }
+        startActivityForResult(intent, SOUND_PICKER_REQUEST_CODE)
+    }
+
+    private fun soundName(uri: Uri?): String {
+        if (uri == null) return "بدون صدا"
+        return runCatching {
+            RingtoneManager.getRingtone(this, uri)?.getTitle(this)
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: "صدای انتخاب‌شده"
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != SOUND_PICKER_REQUEST_CODE || resultCode != RESULT_OK) return
+        val categoryId = pendingSoundCategoryId ?: return
+        val label = pendingSoundCategoryLabel ?: categoryId
+        val picked = data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        notificationSettingsRepository.setSoundUri(categoryId, picked)
+        SmsNotificationManager.recreateChannel(this, categoryId, label, picked)
+        pendingSoundCategoryId = null
+        pendingSoundCategoryLabel = null
+        recreate()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return
+
+        val categoryId = pendingNotificationCategoryId
+        pendingNotificationCategoryId = null
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED && categoryId != null) {
+            notificationSettingsRepository.setEnabled(categoryId, true)
+            val label = notificationCategoryDefinitions().firstOrNull { it.first == categoryId }?.second
+                ?: com.mesterumailer.smsmanager.model.SmsCategory.fromId(categoryId).label
+            SmsNotificationManager.ensureChannel(
+                this,
+                categoryId,
+                label,
+                notificationSettingsRepository.getSoundUri(categoryId)
+            )
+            recreate()
+        } else {
+            Toast.makeText(this, "دسترسی اعلان‌ها داده نشد؛ اعلان دسته فعال نشد.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun inboxRangeOption(mode: InboxReadMode, selected: InboxReadMode): TextView = TextView(this).apply {
