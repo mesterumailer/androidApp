@@ -364,11 +364,11 @@ class MainActivity : BaseActivity() {
         categoryFilterButtons.clear()
         addFilterButton("همه") {
             val repo = CategoryVisibilityRepository(this@MainActivity)
-            categoryDefinitions().forEach { (id, _) -> repo.setVisible(id, true) }
+            activeCategoryDefinitions().forEach { (id, _) -> repo.setVisible(id, true) }
             refreshCategoryFilterButtons()
             requestRender("در حال اعمال فیلترها...")
         }
-        categoryDefinitions().forEach { (id, label) ->
+        activeCategoryDefinitions().forEach { (id, label) ->
             categoryFilterButtons[id] = addFilterButton(label) {
                 val repo = CategoryVisibilityRepository(this@MainActivity)
                 repo.setVisible(id, !repo.isVisible(id))
@@ -390,7 +390,7 @@ class MainActivity : BaseActivity() {
 
     private fun refreshCategoryFilterButtons() {
         if (!::categoryFilterContainer.isInitialized) return
-        val ids = categoryDefinitions().map { it.first }
+        val ids = activeCategoryDefinitions().map { it.first }
         if (categoryFilterButtons.size != ids.size) {
             createCategoryFilterButtons()
             return
@@ -787,7 +787,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun showCategoryDialog(message: SmsMessage) {
-        val definitions = categoryDefinitions().distinctBy { it.first }
+        val definitions = activeCategoryDefinitions().distinctBy { it.first }
 
         if (definitions.isEmpty()) {
             Toast.makeText(this, "هیچ دسته‌ای برای انتخاب وجود ندارد.", Toast.LENGTH_SHORT).show()
