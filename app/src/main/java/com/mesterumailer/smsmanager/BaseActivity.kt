@@ -25,7 +25,7 @@ abstract class BaseActivity : AppCompatActivity() {
         }
     }
 
-    protected fun roundedRippleBackground(color: Int, radiusDp: Int): android.graphics.drawable.RippleDrawable {
+    protected fun rippleSurfaceBackground(color: Int, radiusDp: Int): android.graphics.drawable.RippleDrawable {
         val content = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(color)
