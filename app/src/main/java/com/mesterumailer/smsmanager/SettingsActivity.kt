@@ -1,6 +1,7 @@
 package com.mesterumailer.smsmanager
 
 import android.app.Activity
+import androidx.appcompat.app.AppCompatActivity
 import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
