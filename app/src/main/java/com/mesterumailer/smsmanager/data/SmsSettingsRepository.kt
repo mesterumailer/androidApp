@@ -81,9 +81,7 @@ class SmsSettingsRepository(context: Context) {
             mode = getInboxReadMode(),
             untilDateStartMillis = getInboxDateStartMillis()
         )
-
-    companion object {
-        private fun android.content.SharedPreferences.getLongOrNull(key: String): Long? =
-            if (contains(key)) getLong(key, 0L) else null
-    }
 }
+
+private fun android.content.SharedPreferences.getLongOrNull(key: String): Long? =
+    if (contains(key)) getLong(key, 0L) else null
