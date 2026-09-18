@@ -484,8 +484,14 @@ class MainActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
         addView(drawerSectionTitle("صندوق پیامک"))
-        addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true, action = { drawerLayout.closeDrawer(Gravity.RIGHT) }))
+        addView(drawerItem("▣", "پیامک‌های دریافتی", "مشاهده و دسته‌بندی Inbox", true, action = {
+            drawerLayout.closeDrawer(Gravity.RIGHT)
+        }))
         addView(drawerSectionTitle("تنظیمات"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
+        addView(drawerItem("⌘", "تنظیمات برنامه", "نمای برنامه و سایر تنظیمات", false, action = {
+            startActivity(Intent(this@MainActivity, AppSettingsActivity::class.java))
+            drawerLayout.closeDrawer(Gravity.RIGHT)
+        }))
         addView(drawerItem("⚙", "مدیریت دسته‌بندی‌ها", "ساخت، ویرایش و حذف دسته‌ها", false, action = {
             startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
             drawerLayout.closeDrawer(Gravity.RIGHT)
