@@ -318,7 +318,7 @@ class AppSettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER
         setTextColor(accent)
         setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-        background = roundedRippleBackground(getColor(R.color.accent_surface), 14)
+        background = rippleSurfaceBackground(getColor(R.color.accent_surface), 14)
         setPadding(dp(10), dp(10), dp(10), dp(10))
         setOnClickListener { action() }
     }.apply {
