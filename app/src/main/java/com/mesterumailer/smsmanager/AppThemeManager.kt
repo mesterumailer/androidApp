@@ -2,12 +2,19 @@ package com.mesterumailer.smsmanager
 
 import android.app.Activity
 import android.view.View
+import androidx.appcompat.app.AppCompatDelegate
 import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 
 object AppThemeManager {
     fun applySavedTheme(activity: Activity) {
         val theme = ThemePreferenceRepository(activity).getTheme()
+        AppCompatDelegate.setDefaultNightMode(
+            when (theme) {
+                AppTheme.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+                AppTheme.DARK -> AppCompatDelegate.MODE_NIGHT_YES
+            }
+        )
         activity.setTheme(
             when (theme) {
                 AppTheme.LIGHT -> R.style.AppTheme
