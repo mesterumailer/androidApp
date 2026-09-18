@@ -8,7 +8,7 @@ enum class AppTheme(val id: String, val label: String) {
 
     companion object {
         fun fromId(id: String?): AppTheme =
-            entries.firstOrNull { it.id == id } ?: LIGHT
+            values().firstOrNull { it.id == id } ?: LIGHT
     }
 }
 
