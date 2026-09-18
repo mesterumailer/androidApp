@@ -2,4 +2,33 @@
 <resources>
     <color name="icon_blue">#1769E0</color>
     <color name="icon_mint">#25C98A</color>
+
+    <color name="page_background">#F6F8FC</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="primary_text">#191F2B</color>
+    <color name="secondary_text">#677081</color>
+    <color name="accent">#345EFF</color>
+    <color name="accent_surface">#EFF3FF</color>
+    <color name="soft_surface">#F5F6F9</color>
+    <color name="selection_background">#E8EDFF</color>
+    <color name="selected_message_background">#EEF3FF</color>
+    <color name="processing_overlay">#46F6F8FC</color>
+    <color name="hint_text">#9BA2AE</color>
+    <color name="body_text">#404754</color>
+    <color name="body_highlight">#DEE6FF</color>
+    <color name="amount_text">#1B744F</color>
+    <color name="reset_surface">#F2F3F6</color>
+    <color name="icon_surface">#F7F8FB</color>
+    <color name="disabled_text">#5C636F</color>
+
+    <color name="transaction_background">#E7F7EF</color>
+    <color name="transaction_text">#1B744F</color>
+    <color name="promotion_background">#FFEFEF</color>
+    <color name="promotion_text">#B54343</color>
+    <color name="service_background">#F1ECFF</color>
+    <color name="service_text">#6849A6</color>
+    <color name="otp_background">#EFF3FF</color>
+    <color name="delivery_background">#EDF4FA</color>
+    <color name="delivery_text">#375B75</color>
+    <color name="unknown_background">#F2F3F6</color>
 </resources>
