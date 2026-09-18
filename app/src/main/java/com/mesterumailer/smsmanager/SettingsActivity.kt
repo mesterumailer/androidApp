@@ -13,6 +13,9 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.widget.SwitchCompat
+import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
+import com.mesterumailer.smsmanager.model.SmsCategory
 import android.widget.Toast
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
@@ -62,13 +65,13 @@ class SettingsActivity : BaseActivity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(10), 0, dp(10), 0)
             addView(TextView(this@SettingsActivity).apply {
-                text = "تنظیمات"
-                textSize = 24f
+                text = "مدیریت دسته‌بندی‌ها"
+                textSize = 22f
                 setTextColor(primary)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@SettingsActivity).apply {
-                text = "مدیریت و شخصی‌سازی پیامک‌ها"
+                text = "فعال‌سازی، غیرفعال‌سازی و ویرایش دسته‌ها"
                 textSize = 12f
                 setTextColor(secondary)
                 setPadding(0, dp(3), 0, 0)
@@ -96,7 +99,7 @@ class SettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@SettingsActivity).apply {
-                text = "هر دسته قوانین مخصوص خودش را دارد. یک دسته را انتخاب کنید و فقط همان را ویرایش کنید."
+                text = "برای هر دسته مشخص کنید در Inbox فعال باشد یا موقتاً از نمایش پیام‌ها خارج شود. غیرفعال‌کردن دسته، پیامک اصلی را حذف یا تغییر نمی‌دهد."
                 textSize = 13f
                 setTextColor(secondary)
                 setPadding(0, dp(6), 0, 0)
@@ -169,7 +172,7 @@ class SettingsActivity : BaseActivity() {
     private fun refreshCategories() {
         rules = repository.loadRules().sortedByDescending { it.priority }
         categoryList.removeAllViews()
-        countView.text = "${rules.size} دسته"
+        countView.text = buildEnabledCountLabel(rules)
 
         if (rules.isEmpty()) {
             categoryList.addView(emptyState())
@@ -178,60 +181,151 @@ class SettingsActivity : BaseActivity() {
         rules.forEachIndexed { index, rule ->
             categoryList.addView(createCategoryCard(rule, index))
         }
+        categoryList.addView(createSystemCategoryCard(SmsCategory.UNKNOWN, rules.size))
     }
 
-    private fun createCategoryCard(rule: FilterRule, index: Int): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        layoutDirection = View.LAYOUT_DIRECTION_RTL
-        setPadding(dp(14), dp(12), dp(10), dp(12))
-        background = rippleSurfaceBackground(card, 20)
-        elevation = dp(1).toFloat()
-        isClickable = true
-        setOnClickListener { showRuleEditor(rule) }
+    private fun buildEnabledCountLabel(currentRules: List<FilterRule>): String {
+        val visibility = CategoryVisibilityRepository(this)
+        val total = currentRules.size + 1
+        val enabled = currentRules.count { visibility.isVisible(it.categoryId) } +
+            if (visibility.isVisible(SmsCategory.UNKNOWN.id)) 1 else 0
+        return "$enabled از $total فعال"
+    }
 
-        addView(TextView(this@SettingsActivity).apply {
-            text = ""
-            background = roundedBackground(categoryAccent(index), 10)
-            layoutParams = LinearLayout.LayoutParams(dp(10), dp(44)).apply {
-                marginStart = dp(4)
-            }
-        })
+    private fun createCategoryCard(rule: FilterRule, index: Int): View {
+        val visibility = CategoryVisibilityRepository(this)
+        val enabled = visibility.isVisible(rule.categoryId)
 
-        addView(LinearLayout(this@SettingsActivity).apply {
-            orientation = LinearLayout.VERTICAL
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
-            setPadding(dp(12), 0, dp(8), 0)
-            addView(TextView(this@SettingsActivity).apply {
-                text = rule.displayName
-                textSize = 15f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@SettingsActivity).apply {
-                text = buildSummary(rule)
-                textSize = 11f
-                setTextColor(secondary)
-                setPadding(0, dp(4), 0, 0)
-            })
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+            setPadding(dp(14), dp(12), dp(10), dp(12))
+            background = rippleSurfaceBackground(card, 20)
+            elevation = dp(1).toFloat()
 
-        addView(TextView(this@SettingsActivity).apply {
-            text = "ویرایش"
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setTextColor(accent)
-            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
-            setPadding(dp(11), dp(8), dp(11), dp(8))
-            contentDescription = "ویرایش ${rule.displayName}"
-            setOnClickListener { showRuleEditor(rule) }
-        }, LinearLayout.LayoutParams(-2, dp(38)))
-    }.apply {
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(8)
+            addView(TextView(this@SettingsActivity).apply {
+                text = ""
+                background = roundedBackground(categoryAccent(index), 10)
+                layoutParams = LinearLayout.LayoutParams(dp(10), dp(44)).apply {
+                    marginStart = dp(4)
+                }
+            })
+
+            addView(LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                alpha = if (enabled) 1f else 0.58f
+                setPadding(dp(12), 0, dp(8), 0)
+                addView(TextView(this@SettingsActivity).apply {
+                    text = rule.displayName
+                    textSize = 15f
+                    setTextColor(primary)
+                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                })
+                addView(TextView(this@SettingsActivity).apply {
+                    text = buildSummary(rule)
+                    textSize = 11f
+                    setTextColor(secondary)
+                    setPadding(0, dp(4), 0, 0)
+                })
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginEnd = dp(8)
+            })
+
+            addView(SwitchCompat(this@SettingsActivity).apply {
+                isChecked = enabled
+                contentDescription = "فعال‌سازی ${rule.displayName}"
+                setOnCheckedChangeListener { _, checked ->
+                    visibility.setVisible(rule.categoryId, checked)
+                    refreshCategories()
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        if (checked) "دسته «${rule.displayName}» فعال شد." else "دسته «${rule.displayName}» غیرفعال شد؛ پیام‌های این دسته در Inbox نمایش داده نمی‌شوند.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }, LinearLayout.LayoutParams(dp(52), dp(48)).apply {
+                marginStart = dp(6)
+            })
+
+            addView(TextView(this@SettingsActivity).apply {
+                text = "ویرایش"
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setTextColor(accent)
+                background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+                setPadding(dp(11), dp(8), dp(11), dp(8))
+                contentDescription = "ویرایش ${rule.displayName}"
+                setOnClickListener { showRuleEditor(rule) }
+            }, LinearLayout.LayoutParams(-2, dp(38)))
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(8)
+            }
         }
     }
 
+    private fun createSystemCategoryCard(category: SmsCategory, index: Int): View {
+        val visibility = CategoryVisibilityRepository(this)
+        val enabled = visibility.isVisible(category.id)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(14), dp(12), dp(10), dp(12))
+            background = rippleSurfaceBackground(card, 20)
+            elevation = dp(1).toFloat()
+
+            addView(TextView(this@SettingsActivity).apply {
+                text = ""
+                background = roundedBackground(categoryAccent(index), 10)
+                layoutParams = LinearLayout.LayoutParams(dp(10), dp(44)).apply {
+                    marginStart = dp(4)
+                }
+            })
+
+            addView(LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                alpha = if (enabled) 1f else 0.58f
+                setPadding(dp(12), 0, dp(8), 0)
+                addView(TextView(this@SettingsActivity).apply {
+                    text = category.label
+                    textSize = 15f
+                    setTextColor(primary)
+                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                })
+                addView(TextView(this@SettingsActivity).apply {
+                    text = "دسته سیستمی • بدون قانون قابل ویرایش"
+                    textSize = 11f
+                    setTextColor(secondary)
+                    setPadding(0, dp(4), 0, 0)
+                })
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginEnd = dp(8)
+            })
+
+            addView(SwitchCompat(this@SettingsActivity).apply {
+                isChecked = enabled
+                contentDescription = "فعال‌سازی ${category.label}"
+                setOnCheckedChangeListener { _, checked ->
+                    visibility.setVisible(category.id, checked)
+                    refreshCategories()
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        if (checked) "دسته «${category.label}» فعال شد." else "دسته «${category.label}» غیرفعال شد؛ پیام‌های این دسته در Inbox نمایش داده نمی‌شوند.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }, LinearLayout.LayoutParams(dp(52), dp(48)))
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(8)
+            }
+        }
+    }
     private fun emptyState(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
