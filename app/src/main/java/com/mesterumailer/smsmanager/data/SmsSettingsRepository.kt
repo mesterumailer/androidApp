@@ -69,9 +69,23 @@ class SmsSettingsRepository(context: Context) {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
+        setInboxDateStartMillis(start)
+    }
 
+    fun setInboxDate(timestampMillis: Long) {
+        val calendar = GregorianCalendar().apply {
+            timeInMillis = timestampMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        setInboxDateStartMillis(calendar.timeInMillis)
+    }
+
+    private fun setInboxDateStartMillis(startMillis: Long) {
         preferences.edit()
-            .putLong(KEY_INBOX_DATE_START, start)
+            .putLong(KEY_INBOX_DATE_START, startMillis)
             .apply()
     }
 
