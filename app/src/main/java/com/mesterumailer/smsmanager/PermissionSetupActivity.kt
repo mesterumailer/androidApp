@@ -23,16 +23,16 @@ class PermissionSetupActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var permissionButton: Button
 
-    private val backgroundColor = Color.rgb(246, 248, 252)
-    private val cardColor = Color.WHITE
-    private val primaryText = Color.rgb(25, 31, 43)
-    private val secondaryText = Color.rgb(103, 112, 129)
-    private val accent = Color.rgb(52, 94, 255)
+    private val backgroundColor: Int get() = getColor(R.color.page_background)
+    private val cardColor: Int get() = getColor(R.color.card_background)
+    private val primaryText: Int get() = getColor(R.color.primary_text)
+    private val secondaryText: Int get() = getColor(R.color.secondary_text)
+    private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppThemeManager.applySavedTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = backgroundColor
-        window.navigationBarColor = Color.WHITE
+        AppThemeManager.configureWindow(this)
         setContentView(buildContent())
         refreshState()
     }
@@ -130,7 +130,7 @@ class PermissionSetupActivity : Activity() {
         val badge = TextView(this@PermissionSetupActivity).apply {
             text = number
             textSize = 16f
-            setTextColor(Color.WHITE)
+            setTextColor(cardColor)
             gravity = Gravity.CENTER
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             background = roundedBackground(accent, 15)
