@@ -185,7 +185,7 @@ class SettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER_VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(14), dp(12), dp(10), dp(12))
-        background = roundedRippleBackground(card, 20)
+        background = rippleSurfaceBackground(card, 20)
         elevation = dp(1).toFloat()
         isClickable = true
         setOnClickListener { showRuleEditor(rule) }
