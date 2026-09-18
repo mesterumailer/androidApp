@@ -168,20 +168,24 @@ MainActivity
 │   │   ├── data/
 │   │   │   ├── ThemePreferenceRepository.kt
 │   │   │   ├── CategoryVisibilityRepository.kt
+│   │   │   ├── CategoryActivationRepository.kt
 │   │   │   ├── FilterRuleRepository.kt
+│   │   │   ├── SmsBlockRepository.kt
 │   │   │   └── SmsRepository.kt
 │   │   ├── model/
 │   │   │   ├── FilterRule.kt
 │   │   │   └── SmsMessage.kt
 │   │   └── util/
 │   │       ├── SmsClassifier.kt
-│   │       └── SmsInboxFilter.kt
+│   │       ├── SmsInboxFilter.kt
+│   │       └── SmsBlockFilter.kt
 │   └── src/test/java/com/mesterumailer/smsmanager/
 │       ├── data/
 │       │   └── AppThemeTest.kt
 │       └── util/
 │           ├── SmsClassifierTest.kt
-│           └── SmsInboxFilterTest.kt
+│           ├── SmsInboxFilterTest.kt
+│           └── SmsBlockFilterTest.kt
 ├── .github/workflows/android.yml
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -233,7 +237,7 @@ Workflow این موارد را بررسی می‌کند:
 - در فاز فعلی فقط `READ_SMS` درخواست می‌شود.
 - متن پیامک در log چاپ نمی‌شود.
 - پیامک‌ها در دیتابیس جداگانه ذخیره نمی‌شوند.
-- Ruleها و تنظیمات نمایش فقط به‌صورت تنظیمات محلی نگهداری می‌شوند.
+- Ruleها، وضعیت دسته‌ها و تنظیمات فیلتر مسدودسازی فقط به‌صورت تنظیمات محلی نگهداری می‌شوند.
 - هیچ قابلیت ارسال، حذف یا تغییر SMS در این فاز وجود ندارد.
 
 ## خارج از فاز فعلی
