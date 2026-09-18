@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
-import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
@@ -37,9 +36,9 @@ class SmsReceiver : BroadcastReceiver() {
         if (isBlocked) return
 
         val rules = FilterRuleRepository(context).loadRules()
-        val activeIds = CategoryActivationRepository(context)
-            .activeCategoryIds(rules.map { it.categoryId })
-        val classifier = SmsClassifier(rules.filter { it.categoryId in activeIds })
+        // Notification routing is intentionally independent from Inbox category activation.
+        // A category may be hidden/disabled in the UI while still having its own notification enabled.
+        val classifier = SmsClassifier(rules)
         val analysis = classifier.analyze(address, body)
         val categoryId = analysis.categoryId
         val categoryLabel = rules.firstOrNull { it.categoryId == categoryId }?.displayName
