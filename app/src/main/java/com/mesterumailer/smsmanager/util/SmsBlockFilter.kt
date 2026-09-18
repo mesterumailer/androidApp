@@ -32,6 +32,6 @@ class SmsBlockFilter(
         .replace('ي', 'ی')
         .replace('ك', 'ک')
         .replace(Regex("[\u200c\u200d]"), " ")
-        .replace(Regex("\s+"), " ")
+        .replace(Regex("\\s+"), " ")
         .trim()
 }
