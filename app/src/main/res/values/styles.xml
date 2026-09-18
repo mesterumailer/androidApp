@@ -4,7 +4,6 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="colorControlHighlight">@color/touch_ripple</item>
-        <item name="colorControlHighlight">@color/touch_ripple</item>
         <item name="android:windowBackground">@color/page_background</item>
         <item name="android:navigationBarColor">@color/page_background</item>
         <item name="android:statusBarColor">@color/page_background</item>
@@ -15,6 +14,7 @@
     <style name="AppTheme.Dark" parent="Theme.AppCompat.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
+        <item name="colorControlHighlight">@color/touch_ripple</item>
         <item name="android:windowBackground">@color/page_background</item>
         <item name="android:navigationBarColor">@color/page_background</item>
         <item name="android:statusBarColor">@color/page_background</item>
