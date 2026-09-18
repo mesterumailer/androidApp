@@ -12,7 +12,10 @@ class SmsRepository(
 ) {
     private val classifier = SmsClassifier(rules)
 
-    fun getInbox(limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT): List<SmsMessage> {
+    fun getInbox(
+        limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT,
+        untilTimestampExclusive: Long? = null
+    ): List<SmsMessage> {
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
             Telephony.Sms._ID,
@@ -21,11 +24,14 @@ class SmsRepository(
             Telephony.Sms.DATE
         )
 
+        val selection = untilTimestampExclusive?.let { "${Telephony.Sms.DATE} < ?" }
+        val selectionArgs = untilTimestampExclusive?.let { arrayOf(it.toString()) }
+
         contentResolver.query(
             Telephony.Sms.Inbox.CONTENT_URI,
             projection,
-            null,
-            null,
+            selection,
+            selectionArgs,
             "${Telephony.Sms.DATE} DESC"
         )?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
