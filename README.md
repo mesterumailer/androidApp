@@ -19,7 +19,7 @@
 
 ### قابلیت‌های موجود
 
-- درخواست runtime permission برای `READ_SMS`.
+- درخواست runtime permission برای `READ_SMS` و `RECEIVE_SMS`.
 - خواندن پیامک‌های Inbox از `Telephony.Sms.Inbox`.
 - نمایش و مدیریت سقف خواندن پیامک‌ها؛ مقدار پیش‌فرض ۱۰۰۰ پیام و بازه قابل تنظیم ۲۰۰ تا ۵۰۰۰ پیام.
 - UI فارسی و RTL با هدر مدرن و Drawer سمت راست.
@@ -175,16 +175,20 @@ MainActivity
 │   │   │   ├── CategoryActivationRepository.kt
 │   │   │   ├── FilterRuleRepository.kt
 │   │   │   ├── SmsBlockRepository.kt
+│   │   │   ├── SmsNotificationSettingsRepository.kt
 │   │   │   └── SmsRepository.kt
 │   │   ├── model/
 │   │   │   ├── FilterRule.kt
 │   │   │   └── SmsMessage.kt
 │   │   ├── notification/
 │   │   │   └── SmsNotificationManager.kt
+│   │   ├── notification/
+│   │   │   └── SmsNotificationManager.kt
 │   │   └── util/
 │   │       ├── SmsClassifier.kt
 │   │       ├── SmsInboxFilter.kt
-│   │       └── SmsBlockFilter.kt
+│   │       ├── SmsBlockFilter.kt
+│   │       └── SmsNotificationPolicy.kt
 │   └── src/test/java/com/mesterumailer/smsmanager/
 │       ├── data/
 │       │   └── AppThemeTest.kt
@@ -214,7 +218,8 @@ MainActivity
 
 ۳. برنامه را روی دستگاه Android اجرا کنید.
 
-۴. مجوز خواندن SMS را تأیید کنید.
+۴. مجوزهای SMS را تأیید کنید.
+   در Android 13+ برای فعال‌سازی اعلان‌ها، مجوز Notification نیز هنگام نیاز درخواست می‌شود.
 
 ۵. در صفحه اصلی از جست‌وجوی Inbox و بخش **فیلتر نمایش** استفاده کنید.
 
@@ -244,12 +249,19 @@ Workflow این موارد را بررسی می‌کند:
 
 انتخاب صدا با Ringtone Picker سیستم انجام می‌شود؛ فایل صوتی جدیدی داخل APK قرار نمی‌گیرد. صدای Channel پیش از ثبت آن تعیین می‌شود، بنابراین تغییر صدا از داخل برنامه با بازسازی Channel همان دسته انجام می‌شود.
 
+## محدودیت‌های فعلی اعلان
+
+- اعلان از SMS دریافتی جدید تولید می‌شود و پیام‌های مسدودشده قبل از Notification کنار گذاشته می‌شوند.
+- تنظیمات اعلان هر دسته مستقل از فعال/غیرفعال بودن خود دسته در Classification/Inbox است.
+- برای Android O به بالا، صدای اعلان توسط Notification Channel مدیریت می‌شود؛ تغییر صدا با بازسازی Channel همان دسته اعمال می‌شود.
+- برنامه فایل صوتی اختصاصی داخل APK ندارد و از صداهای موجود سیستم استفاده می‌کند.
+
 ## امنیت و حریم خصوصی
 
 - برای خواندن و دریافت زنده پیامک، `READ_SMS` و `RECEIVE_SMS` درخواست می‌شوند؛ برای اعلان‌های Android 13+ نیز `POST_NOTIFICATIONS` فقط در زمان نیاز درخواست می‌شود.
 - متن پیامک در log چاپ نمی‌شود.
 - پیامک‌ها در دیتابیس جداگانه ذخیره نمی‌شوند.
-- Ruleها، وضعیت دسته‌ها و تنظیمات فیلتر مسدودسازی فقط به‌صورت تنظیمات محلی نگهداری می‌شوند.
+- Ruleها، وضعیت دسته‌ها، تنظیمات فیلتر مسدودسازی و تنظیمات اعلان فقط به‌صورت محلی نگهداری می‌شوند.
 - هیچ قابلیت ارسال، حذف یا تغییر SMS در این فاز وجود ندارد.
 
 ## خارج از فاز فعلی
@@ -285,15 +297,18 @@ Workflow این موارد را بررسی می‌کند:
 
 ### Phase 1.2 — دریافت پیام جدید و اعلان
 
-- [x] `RECEIVE_SMS`
-- [x] `BroadcastReceiver`
+- [x] `RECEIVE_SMS` و ثبت مجوز آن
+- [x] `BroadcastReceiver` برای `SMS_RECEIVED`
 - [x] پردازش پیام جدید با همان Block Filter و Classification
 - [x] اعلان مستقل برای هر دسته
+- [x] فعال/غیرفعال کردن اعلان هر دسته به‌صورت مستقل
 - [x] انتخاب صدای Notification از صداهای موجود گوشی
-- [x] پیش‌فرض بدون صدا و بدون ویبره
+- [x] پیش‌فرض هر دسته بدون صدا
+- [x] بدون ویبره
 - [x] ولوم تابع تنظیمات Notification خود Android
 - [x] درخواست `POST_NOTIFICATIONS` در زمان نیاز
 - [x] جلوگیری از duplicate notification برای دریافت تکراری همان SMS
+- [x] لمس اعلان و باز کردن پیام در برنامه
 
 ### Phase 1.3 — persistence
 
@@ -328,7 +343,9 @@ Workflow این موارد را بررسی می‌کند:
 - [x] تم روشن و تاریک با انتخاب از تنظیمات برنامه
 - [x] تنظیم سقف خواندن Inbox با محدوده زمانی
 - [x] ذخیره واقعی Override دسته‌بندی پیام
-- [ ] دریافت زنده SMS
+- [x] دریافت زنده SMS
+- [x] تنظیمات اعلان و صدای هر دسته
+- [x] جلوگیری از duplicate notification
 - [ ] persistence
 - [ ] تحلیل پیشرفته
 
