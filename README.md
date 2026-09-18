@@ -182,21 +182,23 @@ MainActivity
 │   │   │   └── SmsMessage.kt
 │   │   ├── notification/
 │   │   │   └── SmsNotificationManager.kt
-│   │   ├── notification/
-│   │   │   └── SmsNotificationManager.kt
 │   │   └── util/
 │   │       ├── SmsClassifier.kt
 │   │       ├── SmsInboxFilter.kt
 │   │       ├── SmsBlockFilter.kt
-│   │       └── SmsNotificationPolicy.kt
+│   │       ├── SmsNotificationPolicy.kt
+│   │       └── SmsTextProcessor.kt
 │   └── src/test/java/com/mesterumailer/smsmanager/
 │       ├── data/
 │       │   └── AppThemeTest.kt
 │       └── util/
 │           ├── SmsClassifierTest.kt
 │           ├── SmsInboxFilterTest.kt
-│           └── SmsBlockFilterTest.kt
+│           ├── SmsBlockFilterTest.kt
+│           ├── SmsNotificationPolicyTest.kt
+│           └── SmsTextProcessorTest.kt
 ├── .github/workflows/android.yml
+├── .github/workflows/android-release.yml
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── gradle.properties
