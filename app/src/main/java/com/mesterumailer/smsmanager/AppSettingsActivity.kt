@@ -303,7 +303,7 @@ class AppSettingsActivity : BaseActivity() {
             textSize = 12f
             gravity = Gravity.CENTER
             setTextColor(getColor(R.color.promotion_text))
-            background = roundedRippleBackground(getColor(R.color.card_background), 12)
+            background = rippleSurfaceBackground(getColor(R.color.card_background), 12)
             setPadding(dp(10), dp(8), dp(10), dp(8))
             contentDescription = "حذف فیلتر $value"
             setOnClickListener { onRemove() }
