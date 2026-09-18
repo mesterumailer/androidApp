@@ -156,7 +156,7 @@ class SettingsActivity : BaseActivity() {
             textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(getColor(R.color.disabled_text))
-            background = roundedRippleBackground(getColor(R.color.reset_surface), 16)
+            background = rippleSurfaceBackground(getColor(R.color.reset_surface), 16)
             setPadding(dp(10), dp(12), dp(10), dp(12))
             setOnClickListener { confirmReset() }
         }, LinearLayout.LayoutParams(-1, dp(48)))
