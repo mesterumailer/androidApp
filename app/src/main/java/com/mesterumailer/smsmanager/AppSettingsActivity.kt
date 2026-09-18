@@ -14,6 +14,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.InboxReadMode
+import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 import java.text.DateFormat
@@ -199,6 +200,8 @@ class AppSettingsActivity : BaseActivity() {
             }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
         }
         body.addView(inboxCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+
+        body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(TextView(this).apply {
             text = "در «تا امروز»، سقف پیامک‌ها از جدیدترین پیام‌ها محاسبه می‌شود. در «تا تاریخ مشخص»، پیام‌های بعد از تاریخ انتخاب‌شده وارد خواندن نمی‌شوند."
