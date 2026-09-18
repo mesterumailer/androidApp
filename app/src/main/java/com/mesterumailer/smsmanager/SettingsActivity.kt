@@ -15,10 +15,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
-import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 
 class SettingsActivity : Activity() {
@@ -83,13 +81,6 @@ class SettingsActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(toolbar)
-        root.addView(buildThemeCard(), LinearLayout.LayoutParams(-1, -2).apply {
-            leftMargin = dp(16)
-            rightMargin = dp(16)
-            topMargin = dp(4)
-            bottomMargin = dp(10)
-        })
-
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -229,61 +220,6 @@ class SettingsActivity : Activity() {
         scroll.addView(body, LinearLayout.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return root
-    }
-
-    private fun buildThemeCard(): View {
-        val selectedTheme = ThemePreferenceRepository(this).getTheme()
-        val cardView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutDirection = View.LAYOUT_DIRECTION_RTL
-            setPadding(dp(18), dp(16), dp(18), dp(16))
-            background = roundedBackground(card, 22)
-            elevation = dp(1).toFloat()
-
-            addView(TextView(this@SettingsActivity).apply {
-                text = "نمای برنامه"
-                textSize = 17f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@SettingsActivity).apply {
-                text = "ظاهر روشن یا تاریک برنامه را انتخاب کنید."
-                textSize = 13f
-                setTextColor(secondary)
-                setPadding(0, dp(5), 0, dp(12))
-            })
-
-            val options = LinearLayout(this@SettingsActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            options.addView(buildThemeOption(AppTheme.LIGHT, selectedTheme), LinearLayout.LayoutParams(0, dp(44), 1f).apply {
-                marginStart = dp(5)
-            })
-            options.addView(buildThemeOption(AppTheme.DARK, selectedTheme), LinearLayout.LayoutParams(0, dp(44), 1f).apply {
-                marginEnd = dp(5)
-            })
-            addView(options)
-        }
-        return cardView
-    }
-
-    private fun buildThemeOption(theme: AppTheme, selectedTheme: AppTheme): TextView = TextView(this).apply {
-        text = theme.label
-        textSize = 13f
-        gravity = Gravity.CENTER
-        setTypeface(Typeface.DEFAULT, if (theme == selectedTheme) Typeface.BOLD else Typeface.NORMAL)
-        setTextColor(if (theme == selectedTheme) accent else primary)
-        background = roundedBackground(
-            if (theme == selectedTheme) getColor(R.color.accent_surface) else getColor(R.color.soft_surface),
-            14
-        )
-        setOnClickListener {
-            if (ThemePreferenceRepository(this@SettingsActivity).getTheme() == theme) return@setOnClickListener
-            ThemePreferenceRepository(this@SettingsActivity).setTheme(theme)
-            recreate()
-        }
     }
 
     private fun refreshCategories() {
