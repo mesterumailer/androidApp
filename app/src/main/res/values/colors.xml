@@ -1,25 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="icon_blue">#1769E0</color>
-    <color name="icon_mint">#25C98A</color>
+    <color name="icon_mint">#23B77D</color>
 
-    <color name="page_background">#F6F8FC</color>
+    <color name="touch_ripple">#24000000</color>
+
+    <color name="page_background">#F4F6FA</color>
     <color name="card_background">#FFFFFF</color>
-    <color name="primary_text">#191F2B</color>
-    <color name="secondary_text">#677081</color>
-    <color name="accent">#345EFF</color>
-    <color name="accent_surface">#EFF3FF</color>
-    <color name="soft_surface">#F5F6F9</color>
-    <color name="selection_background">#E8EDFF</color>
-    <color name="selected_message_background">#EEF3FF</color>
+    <color name="primary_text">#171B24</color>
+    <color name="secondary_text">#667085</color>
+    <color name="accent">#4A5CFF</color>
+    <color name="accent_surface">#EEF1FF</color>
+    <color name="soft_surface">#F1F3F7</color>
+    <color name="selection_background">#E5EAFF</color>
+    <color name="selected_message_background">#EDF1FF</color>
     <color name="processing_overlay">#46F6F8FC</color>
-    <color name="hint_text">#9BA2AE</color>
-    <color name="body_text">#404754</color>
-    <color name="body_highlight">#DEE6FF</color>
+    <color name="hint_text">#98A2B3</color>
+    <color name="body_text">#3F4754</color>
+    <color name="body_highlight">#D9E2FF</color>
     <color name="amount_text">#1B744F</color>
-    <color name="reset_surface">#F2F3F6</color>
-    <color name="icon_surface">#F7F8FB</color>
-    <color name="disabled_text">#5C636F</color>
+    <color name="reset_surface">#ECEFF4</color>
+    <color name="icon_surface">#F6F8FB</color>
+    <color name="disabled_text">#667085</color>
 
     <color name="transaction_background">#E7F7EF</color>
     <color name="transaction_text">#1B744F</color>
