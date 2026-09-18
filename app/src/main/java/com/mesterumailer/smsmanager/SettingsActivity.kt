@@ -311,7 +311,7 @@ class SettingsActivity : BaseActivity() {
                 isChecked = enabled
                 contentDescription = "فعال‌سازی ${category.label}"
                 setOnCheckedChangeListener { _, checked ->
-                    visibility.setVisible(category.id, checked)
+                    CategoryActivationRepository(this@SettingsActivity).setActive(category.id, checked)
                     refreshCategories()
                     Toast.makeText(
                         this@SettingsActivity,
