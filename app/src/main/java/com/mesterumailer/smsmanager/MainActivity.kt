@@ -35,7 +35,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.drawerlayout.widget.DrawerLayout
+import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
+import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
@@ -322,6 +324,11 @@ class MainActivity : BaseActivity() {
     private fun categoryDefinitions(): List<Pair<String, String>> {
         val rules = if (currentRules.isEmpty()) FilterRuleRepository(this).loadRules() else currentRules
         return rules.map { it.categoryId to it.displayName } + (SmsCategory.UNKNOWN.id to SmsCategory.UNKNOWN.label)
+    }
+
+    private fun activeCategoryDefinitions(): List<Pair<String, String>> {
+        val activation = CategoryActivationRepository(this)
+        return categoryDefinitions().filter { activation.isActive(it.first) }
     }
 
     private fun buildCategoryFilterCard(): View = LinearLayout(this).apply {
