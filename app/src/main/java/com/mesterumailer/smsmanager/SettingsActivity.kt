@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.EditText
@@ -17,14 +16,12 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
-import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 
 class SettingsActivity : Activity() {
     private lateinit var repository: FilterRuleRepository
     private lateinit var categoryList: LinearLayout
     private lateinit var countView: TextView
-    private lateinit var inboxLimitView: TextView
     private var rules: List<FilterRule> = emptyList()
 
     private val page: Int get() = getColor(R.color.page_background)
@@ -40,7 +37,6 @@ class SettingsActivity : Activity() {
         repository = FilterRuleRepository(this)
         setContentView(buildContent())
         refreshCategories()
-        refreshInboxLimit()
     }
 
     private fun buildContent(): View {
@@ -91,56 +87,6 @@ class SettingsActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(16), dp(6), dp(16), dp(24))
         }
-
-        val inboxCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(18))
-            background = roundedBackground(getColor(R.color.accent_surface), 22)
-            addView(TextView(this@SettingsActivity).apply {
-                text = "صندوق پیامک"
-                textSize = 17f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@SettingsActivity).apply {
-                text = "تعداد پیامک‌های اخیر که برنامه از Inbox می‌خواند را تنظیم کنید."
-                textSize = 13f
-                setTextColor(secondary)
-                setPadding(0, dp(6), 0, 0)
-            })
-            val row = LinearLayout(this@SettingsActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-                setPadding(0, dp(14), 0, 0)
-            }
-            row.addView(LinearLayout(this@SettingsActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-                addView(TextView(this@SettingsActivity).apply {
-                    text = "سقف خواندن پیامک"
-                    textSize = 14f
-                    setTextColor(primary)
-                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                })
-                inboxLimitView = TextView(this@SettingsActivity).apply {
-                    textSize = 12f
-                    setTextColor(secondary)
-                    setPadding(0, dp(4), 0, 0)
-                }
-            }, LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(TextView(this@SettingsActivity).apply {
-                text = "تغییر"
-                textSize = 12f
-                gravity = Gravity.CENTER
-                setTextColor(accent)
-                background = roundedBackground(card, 12)
-                setPadding(dp(14), dp(9), dp(14), dp(9))
-                setOnClickListener { showInboxLimitDialog() }
-            }, LinearLayout.LayoutParams(-2, dp(42)))
-            addView(row)
-        }
-        body.addView(inboxCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
 
         val introCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -235,50 +181,6 @@ class SettingsActivity : Activity() {
         rules.forEachIndexed { index, rule ->
             categoryList.addView(createCategoryCard(rule, index))
         }
-    }
-
-    private fun refreshInboxLimit() {
-        val limit = SmsSettingsRepository(this).getInboxLimit()
-        inboxLimitView.text = "اکنون ${limit} پیامک اخیر • بازه مجاز ${SmsSettingsRepository.MIN_INBOX_LIMIT} تا ${SmsSettingsRepository.MAX_INBOX_LIMIT}"
-    }
-
-    private fun showInboxLimitDialog() {
-        val current = SmsSettingsRepository(this).getInboxLimit()
-        val editor = EditText(this).apply {
-            setText(current.toString())
-            selectAll()
-            hint = "مثلاً 1000"
-            inputType = InputType.TYPE_CLASS_NUMBER
-            setSingleLine(true)
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutDirection = View.LAYOUT_DIRECTION_RTL
-            setPadding(dp(4), dp(2), dp(4), 0)
-            addView(TextView(this@SettingsActivity).apply {
-                text = "پیش‌فرض: ${SmsSettingsRepository.DEFAULT_INBOX_LIMIT} پیامک\nحداقل: ${SmsSettingsRepository.MIN_INBOX_LIMIT} • حداکثر: ${SmsSettingsRepository.MAX_INBOX_LIMIT}"
-                textSize = 12f
-                setTextColor(secondary)
-                setPadding(0, 0, 0, dp(8))
-            })
-            addView(editor)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("تعداد پیامک‌های Inbox")
-            .setView(content)
-            .setNegativeButton("انصراف", null)
-            .setPositiveButton("ذخیره") { _, _ ->
-                val requested = editor.text.toString().toIntOrNull()
-                if (requested == null) {
-                    Toast.makeText(this, "یک عدد معتبر وارد کنید.", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val limit = requested.coerceIn(SmsSettingsRepository.MIN_INBOX_LIMIT, SmsSettingsRepository.MAX_INBOX_LIMIT)
-                SmsSettingsRepository(this).setInboxLimit(limit)
-                refreshInboxLimit()
-                Toast.makeText(this, "سقف خواندن پیامک روی $limit تنظیم شد.", Toast.LENGTH_SHORT).show()
-            }
-            .show()
     }
 
     private fun createCategoryCard(rule: FilterRule, index: Int): View = LinearLayout(this).apply {
