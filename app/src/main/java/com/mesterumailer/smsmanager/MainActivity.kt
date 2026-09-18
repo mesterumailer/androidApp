@@ -99,10 +99,10 @@ class MainActivity : BaseActivity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
-        main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(56)))
-        main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(56)).apply { bottomMargin = dp(8) })
-        main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(82)).apply { bottomMargin = dp(8) })
-        main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(2) })
+        main.addView(buildToolbar(), LinearLayout.LayoutParams(-1, dp(62)))
+        main.addView(buildSearchCard(), LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(10) })
+        main.addView(buildCategoryFilterCard(), LinearLayout.LayoutParams(-1, dp(82)).apply { bottomMargin = dp(10) })
+        main.addView(buildStatusCard(), LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(2) })
         selectionBar = buildSelectionBar()
         main.addView(selectionBar, LinearLayout.LayoutParams(-1, dp(60)).apply {
             topMargin = dp(10)
@@ -240,12 +240,24 @@ class MainActivity : BaseActivity() {
     private fun buildToolbar(): View = FrameLayout(this).apply {
         background = roundedBackground(cardBackground, 22)
         elevation = dp(3).toFloat()
-        addView(TextView(this@MainActivity).apply {
-            text = "مدیریت پیامک‌ها"
-            textSize = 22f
-            setTextColor(primaryText)
-            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            addView(TextView(this@MainActivity).apply {
+                text = "مدیریت پیامک‌ها"
+                textSize = 20f
+                setTextColor(primaryText)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                gravity = Gravity.CENTER
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "صندوق پیامک"
+                textSize = 11f
+                setTextColor(secondaryText)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, 0)
+            })
             layoutParams = FrameLayout.LayoutParams(-1, -1).apply {
                 leftMargin = dp(66)
                 rightMargin = dp(66)
@@ -380,12 +392,12 @@ class MainActivity : BaseActivity() {
         categoryFilterButtons.forEach { (id, button) ->
             val visible = repo.isVisible(id)
             button.setTextColor(if (visible) accent else secondaryText)
-            button.background = roundedBackground(if (visible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
+            button.background = roundedRippleBackground(if (visible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
         }
         val allVisible = ids.isNotEmpty() && ids.all(repo::isVisible)
         (categoryFilterContainer.getChildAt(0) as? TextView)?.apply {
             setTextColor(if (allVisible) accent else secondaryText)
-            background = roundedBackground(if (allVisible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
+            background = roundedRippleBackground(if (allVisible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
         }
     }
 
@@ -442,8 +454,8 @@ class MainActivity : BaseActivity() {
             textSize = 12f
             setTextColor(accent)
             gravity = Gravity.CENTER
-            background = roundedBackground(cardBackground, 13)
-            setPadding(dp(9), dp(8), dp(9), dp(8))
+            background = roundedRippleBackground(cardBackground, 13)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
             tag = tagValue
             setOnClickListener { action() }
         }
@@ -501,7 +513,7 @@ class MainActivity : BaseActivity() {
         gravity = Gravity.CENTER_VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(12), dp(8), dp(12), dp(8))
-        background = roundedBackground(if (selected) getColor(R.color.accent_surface) else Color.TRANSPARENT, 18)
+        background = if (selected) roundedRippleBackground(getColor(R.color.accent_surface), 18) else android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
         alpha = if (enabled) 1f else 0.45f
         if (enabled && action != null) setOnClickListener { action() }
         addView(TextView(this@MainActivity).apply {
@@ -741,7 +753,7 @@ class MainActivity : BaseActivity() {
                     gravity = Gravity.CENTER
                     setTextColor(accent)
                     setPadding(dp(11), dp(8), dp(11), dp(8))
-                    background = roundedBackground(getColor(R.color.accent_surface), 12)
+                    background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
                     contentDescription = "تغییر دسته‌بندی پیام"
                     setOnClickListener { showCategoryDialog(message) }
                 }, LinearLayout.LayoutParams(-2, dp(40)))
@@ -751,12 +763,12 @@ class MainActivity : BaseActivity() {
                     gravity = Gravity.CENTER
                     setTextColor(secondaryText)
                     setPadding(dp(11), dp(8), dp(11), dp(8))
-                    background = roundedBackground(getColor(R.color.icon_surface), 12)
+                    background = roundedRippleBackground(getColor(R.color.icon_surface), 12)
                     setOnClickListener { copyText(message.body) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
         }
     }
 
@@ -911,6 +923,16 @@ class MainActivity : BaseActivity() {
         shape = GradientDrawable.RECTANGLE
         setColor(color)
         cornerRadius = dp(radiusDp).toFloat()
+    }
+
+    private fun roundedRippleBackground(color: Int, radiusDp: Int): android.graphics.drawable.RippleDrawable {
+        val content = roundedBackground(color, radiusDp)
+        val mask = roundedBackground(Color.WHITE, radiusDp)
+        return android.graphics.drawable.RippleDrawable(
+            ColorStateList.valueOf(getColor(R.color.touch_ripple)),
+            content,
+            mask
+        )
     }
 
     override fun onDestroy() {
