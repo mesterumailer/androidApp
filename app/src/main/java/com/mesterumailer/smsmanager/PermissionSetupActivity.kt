@@ -171,7 +171,7 @@ class PermissionSetupActivity : BaseActivity() {
     }
 
     private fun requestSmsPermission() {
-        if (hasReadSmsPermission()) {
+        if (hasRequiredSmsPermissions()) {
             openMain()
             return
         }
