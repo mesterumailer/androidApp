@@ -1,6 +1,6 @@
 package com.mesterumailer.smsmanager
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
 import android.graphics.Typeface
@@ -12,7 +12,6 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
@@ -21,7 +20,7 @@ import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
 
-class AppSettingsActivity : AppCompatActivity() {
+class AppSettingsActivity : BaseActivity() {
     private val page: Int get() = getColor(R.color.page_background)
     private val card: Int get() = getColor(R.color.card_background)
     private val primary: Int get() = getColor(R.color.primary_text)
@@ -29,9 +28,7 @@ class AppSettingsActivity : AppCompatActivity() {
     private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppThemeManager.applySavedTheme(this)
         super.onCreate(savedInstanceState)
-        AppThemeManager.configureWindow(this)
         setContentView(buildContent())
     }
 
