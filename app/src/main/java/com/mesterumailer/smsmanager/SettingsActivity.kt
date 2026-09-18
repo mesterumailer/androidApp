@@ -1,7 +1,5 @@
 package com.mesterumailer.smsmanager
 
-import android.app.Activity
-import androidx.appcompat.app.AppCompatActivity
 import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
@@ -19,7 +17,7 @@ import android.widget.Toast
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 
-class SettingsActivity : Activity() {
+class SettingsActivity : BaseActivity() {
     private lateinit var repository: FilterRuleRepository
     private lateinit var categoryList: LinearLayout
     private lateinit var countView: TextView
@@ -32,9 +30,7 @@ class SettingsActivity : Activity() {
     private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppThemeManager.applySavedTheme(this)
         super.onCreate(savedInstanceState)
-        AppThemeManager.configureWindow(this)
         repository = FilterRuleRepository(this)
         setContentView(buildContent())
         refreshCategories()
