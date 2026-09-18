@@ -162,7 +162,7 @@ class PermissionSetupActivity : BaseActivity() {
     }
 
     private fun refreshState() {
-        if (hasReadSmsPermission()) {
+        if (hasRequiredSmsPermissions()) {
             openMain()
         } else {
             statusView.text = "هنوز دسترسی خواندن SMS فعال نیست."
@@ -190,8 +190,9 @@ class PermissionSetupActivity : BaseActivity() {
         startActivity(intent)
     }
 
-    private fun hasReadSmsPermission(): Boolean =
-        checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+    private fun hasRequiredSmsPermissions(): Boolean =
+        checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
