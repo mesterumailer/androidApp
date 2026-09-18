@@ -191,7 +191,7 @@ class AppSettingsActivity : BaseActivity() {
                 textSize = 13f
                 gravity = Gravity.CENTER
                 setTextColor(primary)
-                background = roundedRippleBackground(getColor(R.color.soft_surface), 14)
+                background = rippleSurfaceBackground(getColor(R.color.soft_surface), 14)
                 setPadding(dp(12), dp(11), dp(12), dp(11))
                 visibility = if (readSettings.mode == InboxReadMode.UNTIL_DATE) View.VISIBLE else View.GONE
                 setOnClickListener { showInboxDatePicker() }
