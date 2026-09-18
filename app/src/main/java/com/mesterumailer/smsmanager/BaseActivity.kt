@@ -1,5 +1,8 @@
 package com.mesterumailer.smsmanager
 
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.mesterumailer.smsmanager.data.AppTheme
@@ -21,4 +24,3 @@ abstract class BaseActivity : AppCompatActivity() {
             recreate()
         }
     }
-}
