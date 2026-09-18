@@ -69,18 +69,16 @@ class MainActivity : Activity() {
     private var processingToken = 0L
     private var processingShowTask: Runnable? = null
 
-    private val pageBackground = Color.rgb(246, 248, 252)
-    private val cardBackground = Color.WHITE
-    private val primaryText = Color.rgb(25, 31, 43)
-    private val secondaryText = Color.rgb(103, 112, 129)
-    private val accent = Color.rgb(52, 94, 255)
+    private val pageBackground: Int get() = getColor(R.color.page_background)
+    private val cardBackground: Int get() = getColor(R.color.card_background)
+    private val primaryText: Int get() = getColor(R.color.primary_text)
+    private val secondaryText: Int get() = getColor(R.color.secondary_text)
+    private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppThemeManager.applySavedTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = pageBackground
-        window.navigationBarColor = Color.WHITE
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        AppThemeManager.configureWindow(this)
         setContentView(buildContent())
         if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS), readSmsRequestCode)
@@ -133,7 +131,7 @@ class MainActivity : Activity() {
 
     private fun buildProcessingOverlay(): FrameLayout = FrameLayout(this).apply {
         visibility = View.GONE
-        setBackgroundColor(Color.argb(70, 246, 248, 252))
+        setBackgroundColor(getColor(R.color.processing_overlay))
         isClickable = true
         isFocusable = true
         processingOverlay = this
@@ -142,7 +140,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(18), dp(10), dp(18), dp(10))
-            background = roundedBackground(Color.WHITE, 18)
+            background = roundedBackground(cardBackground, 18)
             elevation = dp(5).toFloat()
             addView(ProgressBar(this@MainActivity).apply {
                 isIndeterminate = true
@@ -283,7 +281,7 @@ class MainActivity : Activity() {
             hint = "جست‌وجو در متن یا نام فرستنده..."
             textSize = 14f
             setTextColor(primaryText)
-            setHintTextColor(Color.rgb(155, 162, 174))
+            setHintTextColor(getColor(R.color.hint_text))
             background = null
             setSingleLine(true)
             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -384,12 +382,12 @@ class MainActivity : Activity() {
         categoryFilterButtons.forEach { (id, button) ->
             val visible = repo.isVisible(id)
             button.setTextColor(if (visible) accent else secondaryText)
-            button.background = roundedBackground(if (visible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249), 15)
+            button.background = roundedBackground(if (visible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
         }
         val allVisible = ids.isNotEmpty() && ids.all(repo::isVisible)
         (categoryFilterContainer.getChildAt(0) as? TextView)?.apply {
             setTextColor(if (allVisible) accent else secondaryText)
-            background = roundedBackground(if (allVisible) Color.rgb(239, 243, 255) else Color.rgb(245, 246, 249), 15)
+            background = roundedBackground(if (allVisible) getColor(R.color.accent_surface) else getColor(R.color.soft_surface), 15)
         }
     }
 
@@ -412,7 +410,7 @@ class MainActivity : Activity() {
             textSize = 24f
             setTextColor(accent)
             gravity = Gravity.CENTER
-            background = roundedBackground(Color.rgb(239, 243, 255), 16)
+            background = roundedBackground(getColor(R.color.accent_surface), 16)
             contentDescription = "به‌روزرسانی پیامک‌ها"
             setOnClickListener { loadInbox() }
             layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginStart = dp(8) }
@@ -425,7 +423,7 @@ class MainActivity : Activity() {
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         visibility = View.GONE
         setPadding(dp(8), dp(5), dp(8), dp(5))
-        background = roundedBackground(Color.rgb(232, 237, 255), 18)
+        background = roundedBackground(getColor(R.color.selection_background), 18)
         addView(TextView(this@MainActivity).apply {
             textSize = 13f
             setTextColor(primaryText)
@@ -446,7 +444,7 @@ class MainActivity : Activity() {
             textSize = 12f
             setTextColor(accent)
             gravity = Gravity.CENTER
-            background = roundedBackground(Color.WHITE, 13)
+            background = roundedBackground(cardBackground, 13)
             setPadding(dp(9), dp(8), dp(9), dp(8))
             tag = tagValue
             setOnClickListener { action() }
@@ -458,11 +456,11 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(18), dp(30), dp(18), dp(20))
-        setBackgroundColor(Color.WHITE)
+        setBackgroundColor(cardBackground)
         addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(20))
-            background = roundedBackground(Color.rgb(242, 245, 255), 22)
+            background = roundedBackground(getColor(R.color.accent_surface), 22)
             addView(TextView(this@MainActivity).apply {
                 text = "پیامک‌یار"
                 textSize = 13f
@@ -499,7 +497,7 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER_VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(12), dp(8), dp(12), dp(8))
-        background = roundedBackground(if (selected) Color.rgb(239, 243, 255) else Color.TRANSPARENT, 18)
+        background = roundedBackground(if (selected) getColor(R.color.accent_surface) else Color.TRANSPARENT, 18)
         alpha = if (enabled) 1f else 0.45f
         if (enabled && action != null) setOnClickListener { action() }
         addView(TextView(this@MainActivity).apply {
@@ -507,7 +505,7 @@ class MainActivity : Activity() {
             textSize = 21f
             setTextColor(if (selected) accent else primaryText)
             gravity = Gravity.CENTER
-            background = roundedBackground(if (selected) Color.WHITE else Color.rgb(247, 248, 251), 14)
+            background = roundedBackground(if (selected) cardBackground else getColor(R.color.icon_surface), 14)
         }, LinearLayout.LayoutParams(dp(44), dp(44)))
         addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
@@ -637,7 +635,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = roundedBackground(if (selectedIds.contains(message.id)) Color.rgb(238, 243, 255) else cardBackground, 20)
+            background = roundedBackground(if (selectedIds.contains(message.id)) getColor(R.color.selected_message_background) else cardBackground, 20)
             elevation = dp(1).toFloat()
             val header = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -680,7 +678,7 @@ class MainActivity : Activity() {
                     setTextColor(accent)
                     setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                     setPadding(dp(12), dp(9), dp(12), dp(9))
-                    background = roundedBackground(Color.rgb(239, 243, 255), 14)
+                    background = roundedBackground(getColor(R.color.accent_surface), 14)
                     contentDescription = "کد تأیید؛ برای کپی لمس کنید"
                     setOnClickListener { copyText(code) }
                 })
@@ -689,21 +687,21 @@ class MainActivity : Activity() {
                 addView(TextView(this@MainActivity).apply {
                     text = "مبلغ  $amount"
                     textSize = 13f
-                    setTextColor(Color.rgb(27, 116, 79))
+                    setTextColor(getColor(R.color.amount_text))
                     setPadding(0, dp(8), 0, 0)
                 })
             }
             addView(TextView(this@MainActivity).apply {
                 text = preparedBody
                 textSize = 14f
-                setTextColor(Color.rgb(64, 71, 84))
+                setTextColor(getColor(R.color.body_text))
                 textDirection = View.TEXT_DIRECTION_RTL
                 setLineSpacing(0f, 1.15f)
                 setPadding(0, dp(10), 0, 0)
                 setTextIsSelectable(true)
                 linksClickable = true
                 movementMethod = LinkMovementMethod.getInstance()
-                highlightColor = Color.rgb(222, 230, 255)
+                highlightColor = getColor(R.color.body_highlight)
             })
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -715,7 +713,7 @@ class MainActivity : Activity() {
                     gravity = Gravity.CENTER
                     setTextColor(accent)
                     setPadding(dp(11), dp(8), dp(11), dp(8))
-                    background = roundedBackground(Color.rgb(239, 243, 255), 12)
+                    background = roundedBackground(getColor(R.color.accent_surface), 12)
                     contentDescription = "تغییر دسته‌بندی پیام"
                     setOnClickListener { showCategoryDialog(message) }
                 }, LinearLayout.LayoutParams(-2, dp(40)))
@@ -725,7 +723,7 @@ class MainActivity : Activity() {
                     gravity = Gravity.CENTER
                     setTextColor(secondaryText)
                     setPadding(dp(11), dp(8), dp(11), dp(8))
-                    background = roundedBackground(Color.rgb(247, 248, 251), 12)
+                    background = roundedBackground(getColor(R.color.icon_surface), 12)
                     setOnClickListener { copyText(message.body) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
@@ -864,20 +862,20 @@ class MainActivity : Activity() {
     }
 
     private fun categoryBackground(category: SmsCategory): Int = when (category) {
-        SmsCategory.TRANSACTION -> Color.rgb(231, 247, 239)
-        SmsCategory.PROMOTION -> Color.rgb(255, 239, 239)
-        SmsCategory.SERVICE -> Color.rgb(241, 236, 255)
-        SmsCategory.OTP -> Color.rgb(239, 243, 255)
-        SmsCategory.DELIVERY -> Color.rgb(237, 244, 250)
-        SmsCategory.UNKNOWN -> Color.rgb(242, 243, 246)
+        SmsCategory.TRANSACTION -> getColor(R.color.transaction_background)
+        SmsCategory.PROMOTION -> getColor(R.color.promotion_background)
+        SmsCategory.SERVICE -> getColor(R.color.service_background)
+        SmsCategory.OTP -> getColor(R.color.accent_surface)
+        SmsCategory.DELIVERY -> getColor(R.color.delivery_background)
+        SmsCategory.UNKNOWN -> getColor(R.color.unknown_background)
     }
 
     private fun categoryTextColor(category: SmsCategory): Int = when (category) {
-        SmsCategory.TRANSACTION -> Color.rgb(27, 116, 79)
-        SmsCategory.PROMOTION -> Color.rgb(181, 67, 67)
-        SmsCategory.SERVICE -> Color.rgb(104, 73, 166)
+        SmsCategory.TRANSACTION -> getColor(R.color.transaction_text)
+        SmsCategory.PROMOTION -> getColor(R.color.promotion_text)
+        SmsCategory.SERVICE -> getColor(R.color.service_text)
         SmsCategory.OTP -> accent
-        SmsCategory.DELIVERY -> Color.rgb(55, 91, 117)
+        SmsCategory.DELIVERY -> getColor(R.color.delivery_text)
         SmsCategory.UNKNOWN -> secondaryText
     }
 
