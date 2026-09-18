@@ -17,7 +17,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 class PermissionSetupActivity : BaseActivity() {
-    private val readSmsRequestCode = 2001
+    private val smsPermissionRequestCode = 2001
     private var openedAppSettings = false
     private lateinit var statusView: TextView
     private lateinit var permissionButton: Button
@@ -37,7 +37,7 @@ class PermissionSetupActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         if (::statusView.isInitialized) {
-            if (hasReadSmsPermission()) {
+            if (hasRequiredSmsPermissions()) {
                 openMain()
             } else if (openedAppSettings) {
                 openedAppSettings = false
@@ -86,8 +86,8 @@ class PermissionSetupActivity : BaseActivity() {
 
         content.addView(buildStepCard(
             number = "۲",
-            title = "اجازه خواندن پیامک",
-            description = "بعد از مرحله قبل، دکمه زیر را بزنید و در پنجره Android گزینه اجازه دسترسی به پیامک‌ها را فعال کنید.",
+            title = "اجازه دسترسی به پیامک‌ها",
+            description = "بعد از مرحله قبل، دکمه زیر را بزنید. این دسترسی برای خواندن Inbox و تشخیص پیامک جدید استفاده می‌شود؛ برنامه پیامک‌ها را حذف یا تغییر نمی‌دهد.",
             buttonText = "فعال‌سازی دسترسی SMS",
             action = { requestSmsPermission() }
         ))
@@ -179,7 +179,7 @@ class PermissionSetupActivity : BaseActivity() {
             openMain()
             return
         }
-        requestPermissions(arrayOf(Manifest.permission.READ_SMS), readSmsRequestCode)
+        requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
     }
 
     private fun openAppInfo() {
@@ -199,14 +199,14 @@ class PermissionSetupActivity : BaseActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != readSmsRequestCode) return
+        if (requestCode != smsPermissionRequestCode) return
 
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
             openMain()
             return
         }
 
-        statusView.text = "مجوز SMS فعال نشد. اگر Android پیام «Restricted setting» یا «تنظیمات محدودشده» نشان می‌دهد، ابتدا مرحله ۱ را انجام دهید و سپس دوباره مجوز SMS را امتحان کنید."
+        statusView.text = "دسترسی پیامک فعال نشد. اگر Android پیام «Restricted setting» یا «تنظیمات محدودشده» نشان می‌دهد، ابتدا مرحله ۱ را انجام دهید و سپس دوباره دسترسی SMS را امتحان کنید."
     }
 
     private fun openMain() {
