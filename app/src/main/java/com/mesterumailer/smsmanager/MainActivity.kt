@@ -1,8 +1,6 @@
 package com.mesterumailer.smsmanager
 
 import android.Manifest
-import android.app.Activity
-import androidx.appcompat.app.AppCompatActivity
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -53,7 +51,7 @@ import java.util.Date
 import java.util.Calendar
 import java.util.concurrent.Executors
 
-class MainActivity : Activity() {
+class MainActivity : BaseActivity() {
     private val readSmsRequestCode = 1001
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var listContainer: LinearLayout
