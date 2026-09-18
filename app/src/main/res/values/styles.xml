@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:windowBackground">@color/page_background</item>
@@ -10,7 +10,7 @@
         <item name="android:windowLightNavigationBar">true</item>
     </style>
 
-    <style name="AppTheme.Dark" parent="android:style/Theme.Material.NoActionBar">
+    <style name="AppTheme.Dark" parent="Theme.AppCompat.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:windowBackground">@color/page_background</item>
