@@ -2,11 +2,23 @@ package com.mesterumailer.smsmanager
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.mesterumailer.smsmanager.data.AppTheme
+import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 
 abstract class BaseActivity : AppCompatActivity() {
+    private var appliedTheme = AppTheme.LIGHT
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppThemeManager.applySavedTheme(this)
+        appliedTheme = ThemePreferenceRepository(this).getTheme()
         super.onCreate(savedInstanceState)
         AppThemeManager.configureWindow(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (ThemePreferenceRepository(this).getTheme() != appliedTheme && !isFinishing) {
+            recreate()
+        }
     }
 }
