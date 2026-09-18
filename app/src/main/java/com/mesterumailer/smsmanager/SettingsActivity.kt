@@ -187,14 +187,14 @@ class SettingsActivity : BaseActivity() {
     private fun buildEnabledCountLabel(currentRules: List<FilterRule>): String {
         val activation = CategoryActivationRepository(this)
         val total = currentRules.size + 1
-        val enabled = currentRules.count { visibility.isVisible(it.categoryId) } +
-            if (visibility.isVisible(SmsCategory.UNKNOWN.id)) 1 else 0
+        val enabled = currentRules.count { activation.isActive(it.categoryId) } +
+            if (activation.isActive(SmsCategory.UNKNOWN.id)) 1 else 0
         return "$enabled از $total فعال"
     }
 
     private fun createCategoryCard(rule: FilterRule, index: Int): View {
-        val visibility = CategoryVisibilityRepository(this)
-        val enabled = visibility.isVisible(rule.categoryId)
+        val activation = CategoryActivationRepository(this)
+        val enabled = activation.isActive(rule.categoryId)
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -267,8 +267,8 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun createSystemCategoryCard(category: SmsCategory, index: Int): View {
-        val visibility = CategoryVisibilityRepository(this)
-        val enabled = visibility.isVisible(category.id)
+        val activation = CategoryActivationRepository(this)
+        val enabled = activation.isActive(category.id)
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
