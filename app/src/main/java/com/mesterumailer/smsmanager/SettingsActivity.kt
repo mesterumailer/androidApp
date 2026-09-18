@@ -135,7 +135,7 @@ class SettingsActivity : BaseActivity() {
             gravity = Gravity.CENTER
             setTextColor(accent)
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            background = roundedRippleBackground(card, 18)
+            background = rippleSurfaceBackground(card, 18)
             setPadding(dp(12), dp(14), dp(12), dp(14))
             setOnClickListener { showCreateDialog() }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply {
