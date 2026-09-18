@@ -1,8 +1,6 @@
 package com.mesterumailer.smsmanager
 
 import android.Manifest
-import android.app.Activity
-import androidx.appcompat.app.AppCompatActivity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -18,7 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 
-class PermissionSetupActivity : Activity() {
+class PermissionSetupActivity : BaseActivity() {
     private val readSmsRequestCode = 2001
     private var openedAppSettings = false
     private lateinit var statusView: TextView
@@ -31,9 +29,7 @@ class PermissionSetupActivity : Activity() {
     private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppThemeManager.applySavedTheme(this)
         super.onCreate(savedInstanceState)
-        AppThemeManager.configureWindow(this)
         setContentView(buildContent())
         refreshState()
     }
