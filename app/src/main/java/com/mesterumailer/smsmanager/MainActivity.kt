@@ -35,13 +35,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.drawerlayout.widget.DrawerLayout
-import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
-import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
@@ -70,7 +68,6 @@ class MainActivity : BaseActivity() {
     private val processingExecutor = Executors.newSingleThreadExecutor()
     private var processingToken = 0L
     private var processingShowTask: Runnable? = null
-    private var appliedTheme = AppTheme.LIGHT
 
     private val pageBackground: Int get() = getColor(R.color.page_background)
     private val cardBackground: Int get() = getColor(R.color.card_background)
@@ -79,10 +76,7 @@ class MainActivity : BaseActivity() {
     private val accent: Int get() = getColor(R.color.accent)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppThemeManager.applySavedTheme(this)
-        appliedTheme = ThemePreferenceRepository(this).getTheme()
         super.onCreate(savedInstanceState)
-        AppThemeManager.configureWindow(this)
         setContentView(buildContent())
         if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS), readSmsRequestCode)
@@ -93,10 +87,6 @@ class MainActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (ThemePreferenceRepository(this).getTheme() != appliedTheme) {
-            recreate()
-            return
-        }
         if (!::listContainer.isInitialized) return
         if (checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) loadInbox()
     }
