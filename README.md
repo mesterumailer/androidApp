@@ -120,7 +120,7 @@ MainActivity
 │   │   ├── PermissionSetupActivity.kt
 │   │   ├── AppThemeManager.kt
 │   │   ├── data/
-│   │   │   ├── AppThemeRepository.kt
+│   │   │   ├── ThemePreferenceRepository.kt
 │   │   │   ├── CategoryVisibilityRepository.kt
 │   │   │   ├── FilterRuleRepository.kt
 │   │   │   └── SmsRepository.kt
