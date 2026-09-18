@@ -217,7 +217,7 @@ class AppSettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER
         setTypeface(Typeface.DEFAULT, if (mode == selected) Typeface.BOLD else Typeface.NORMAL)
         setTextColor(if (mode == selected) accent else primary)
-        background = roundedRippleBackground(
+        background = rippleSurfaceBackground(
             if (mode == selected) getColor(R.color.accent_surface) else getColor(R.color.soft_surface),
             14
         )
