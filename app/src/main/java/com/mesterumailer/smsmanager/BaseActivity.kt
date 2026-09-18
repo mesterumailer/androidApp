@@ -29,7 +29,7 @@ abstract class BaseActivity : AppCompatActivity() {
         val content = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(color)
-            cornerRadius = dp(radiusDp).toFloat()
+            cornerRadius = (radiusDp * resources.displayMetrics.density).toFloat()
         }
         val mask = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
