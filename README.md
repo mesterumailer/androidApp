@@ -78,13 +78,31 @@
 ## معماری فعلی
 
 ```text
+BaseActivity
+   |
+   +--> اعمال تم سراسری (روشن / تاریک)
+   |
+   +--> MainActivity
+   |      |
+   |      +--> Inbox / Search / Category Filters
+   |      +--> SmsRepository
+   |      +--> SmsInboxFilter
+   |
+   +--> AppSettingsActivity
+   |      |
+   |      +--> Theme (روشن / تاریک)
+   |      +--> تنظیمات محدوده Inbox
+   |
+   +--> SettingsActivity
+   |      |
+   |      +--> Edit Rule
+   |      +--> Save / Reset defaults
+   |
+   +--> PermissionSetupActivity
+          |
+          +--> READ_SMS permission flow
+
 MainActivity
-   |
-   +--> Search Input ----------------------+
-   |
-   +--> Category Visibility ---------------|--> SmsInboxFilter --> Inbox UI
-   |                                       |
-   +--> FilterRuleRepository --> Rules ----+
    |
    +--> SmsRepository
              |
@@ -96,24 +114,6 @@ MainActivity
                               +--> Category
                               +--> OTP
                               +--> Amount
-
-MainActivity
-   |
-   +--> Hamburger Drawer
-             |
-             +--> BaseActivity
-   |      |
-   |      +--> اعمال تم سراسری (روشن / تاریک)
-   |
-   +--> AppSettingsActivity
-   |      |
-   |      +--> Theme (روشن / تاریک)
-   |      +--> تنظیمات محدوده Inbox
-   |
-   +--> SettingsActivity
-          |
-          +--> Edit Rule
-          +--> Save / Reset defaults
 ```
 
 ## ساختار پروژه
