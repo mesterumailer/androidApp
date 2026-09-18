@@ -4,11 +4,13 @@ import android.content.ContentResolver
 import android.provider.Telephony
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsMessage
+import com.mesterumailer.smsmanager.util.SmsBlockFilter
 import com.mesterumailer.smsmanager.util.SmsClassifier
 
 class SmsRepository(
     private val contentResolver: ContentResolver,
-    rules: List<FilterRule>
+    rules: List<FilterRule>,
+    private val blockFilter: SmsBlockFilter = SmsBlockFilter(emptyList(), emptyList())
 ) {
     private val classifier = SmsClassifier(rules)
 
@@ -42,6 +44,10 @@ class SmsRepository(
             while (cursor.moveToNext() && messages.size < limit) {
                 val body = cursor.getString(bodyIndex).orEmpty()
                 val address = cursor.getString(addressIndex).orEmpty()
+
+                // Blocked messages are discarded before classification, extraction or UI creation.
+                if (blockFilter.isBlocked(address, body)) continue
+
                 messages += SmsMessage(
                     id = cursor.getLong(idIndex),
                     address = address,
