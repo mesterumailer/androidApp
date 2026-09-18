@@ -2,7 +2,7 @@
 
 مدیریت و تحلیل پیامک‌های دریافتی روی Android، با تمرکز فعلی روی **فاز ۱: Inbox، دسته‌بندی قابل تنظیم و استخراج اطلاعات مهم**.
 
-> وضعیت فعلی: نسخه `0.3.0` — فاز ۱.۱، قابل تست
+> وضعیت فعلی: نسخه `0.4.0` — فاز ۱.۱، قابل تست
 
 ## هدف پروژه
 
@@ -117,7 +117,10 @@ MainActivity
 │   ├── src/main/java/com/mesterumailer/smsmanager/
 │   │   ├── MainActivity.kt
 │   │   ├── SettingsActivity.kt
+│   │   ├── PermissionSetupActivity.kt
+│   │   ├── AppThemeManager.kt
 │   │   ├── data/
+│   │   │   ├── AppThemeRepository.kt
 │   │   │   ├── CategoryVisibilityRepository.kt
 │   │   │   ├── FilterRuleRepository.kt
 │   │   │   └── SmsRepository.kt
@@ -128,6 +131,8 @@ MainActivity
 │   │       ├── SmsClassifier.kt
 │   │       └── SmsInboxFilter.kt
 │   └── src/test/java/com/mesterumailer/smsmanager/
+│       ├── data/
+│       │   └── AppThemeTest.kt
 │       └── util/
 │           ├── SmsClassifierTest.kt
 │           └── SmsInboxFilterTest.kt
