@@ -218,7 +218,7 @@ class MainActivity : Activity() {
     ) {
         listContainer.removeAllViews()
         statusView.text = if (query.isBlank()) {
-            visibleMessages.size.toString() + " پیامک اخیر"
+            visibleMessages.size.toString() + " پیامک"
         } else {
             visibleMessages.size.toString() + " نتیجه از " + sourceCount + " پیامک"
         }
