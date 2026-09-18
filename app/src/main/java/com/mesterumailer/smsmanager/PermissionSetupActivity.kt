@@ -130,7 +130,7 @@ class PermissionSetupActivity : Activity() {
         val badge = TextView(this@PermissionSetupActivity).apply {
             text = number
             textSize = 16f
-            setTextColor(cardColor)
+            setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             background = roundedBackground(accent, 15)
