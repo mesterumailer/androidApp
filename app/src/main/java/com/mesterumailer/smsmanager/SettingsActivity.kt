@@ -439,8 +439,9 @@ class SettingsActivity : BaseActivity() {
             .setNegativeButton("انصراف", null)
             .setPositiveButton("بازگردانی") { _, _ ->
                 repository.resetToDefaults()
+                CategoryVisibilityRepository(this).resetToDefaults()
                 refreshCategories()
-                Toast.makeText(this, "دسته‌های اولیه بازگردانی شدند.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "دسته‌ها و وضعیت فعال‌بودن آن‌ها بازگردانی شدند.", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
