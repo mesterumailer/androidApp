@@ -865,7 +865,7 @@ class MainActivity : Activity() {
         SmsCategory.TRANSACTION -> getColor(R.color.transaction_background)
         SmsCategory.PROMOTION -> getColor(R.color.promotion_background)
         SmsCategory.SERVICE -> getColor(R.color.service_background)
-        SmsCategory.OTP -> getColor(R.color.accent_surface)
+        SmsCategory.OTP -> getColor(R.color.otp_background)
         SmsCategory.DELIVERY -> getColor(R.color.delivery_background)
         SmsCategory.UNKNOWN -> getColor(R.color.unknown_background)
     }
