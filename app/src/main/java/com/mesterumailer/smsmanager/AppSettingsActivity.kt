@@ -191,7 +191,7 @@ class AppSettingsActivity : BaseActivity() {
                 textSize = 13f
                 gravity = Gravity.CENTER
                 setTextColor(primary)
-                background = roundedBackground(getColor(R.color.soft_surface), 14)
+                background = roundedRippleBackground(getColor(R.color.soft_surface), 14)
                 setPadding(dp(12), dp(11), dp(12), dp(11))
                 visibility = if (readSettings.mode == InboxReadMode.UNTIL_DATE) View.VISIBLE else View.GONE
                 setOnClickListener { showInboxDatePicker() }
@@ -217,7 +217,7 @@ class AppSettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER
         setTypeface(Typeface.DEFAULT, if (mode == selected) Typeface.BOLD else Typeface.NORMAL)
         setTextColor(if (mode == selected) accent else primary)
-        background = roundedBackground(
+        background = roundedRippleBackground(
             if (mode == selected) getColor(R.color.accent_surface) else getColor(R.color.soft_surface),
             14
         )
@@ -299,7 +299,7 @@ class AppSettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER
         setTypeface(Typeface.DEFAULT, if (theme == selected) Typeface.BOLD else Typeface.NORMAL)
         setTextColor(if (theme == selected) accent else primary)
-        background = roundedBackground(
+        background = roundedRippleBackground(
             if (theme == selected) getColor(R.color.accent_surface) else getColor(R.color.soft_surface),
             14
         )
