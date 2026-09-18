@@ -221,7 +221,7 @@ class SettingsActivity : BaseActivity() {
             textSize = 12f
             gravity = Gravity.CENTER
             setTextColor(accent)
-            background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
             setPadding(dp(11), dp(8), dp(11), dp(8))
             contentDescription = "ویرایش ${rule.displayName}"
             setOnClickListener { showRuleEditor(rule) }
