@@ -14,7 +14,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
-import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
+import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.model.SmsCategory
 import android.widget.Toast
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
@@ -185,7 +185,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildEnabledCountLabel(currentRules: List<FilterRule>): String {
-        val visibility = CategoryVisibilityRepository(this)
+        val activation = CategoryActivationRepository(this)
         val total = currentRules.size + 1
         val enabled = currentRules.count { visibility.isVisible(it.categoryId) } +
             if (visibility.isVisible(SmsCategory.UNKNOWN.id)) 1 else 0
@@ -237,7 +237,7 @@ class SettingsActivity : BaseActivity() {
                 isChecked = enabled
                 contentDescription = "فعال‌سازی ${rule.displayName}"
                 setOnCheckedChangeListener { _, checked ->
-                    visibility.setVisible(rule.categoryId, checked)
+                    activation.setActive(rule.categoryId, checked)
                     refreshCategories()
                     Toast.makeText(
                         this@SettingsActivity,
@@ -439,7 +439,7 @@ class SettingsActivity : BaseActivity() {
             .setNegativeButton("انصراف", null)
             .setPositiveButton("بازگردانی") { _, _ ->
                 repository.resetToDefaults()
-                CategoryVisibilityRepository(this).resetToDefaults()
+                CategoryActivationRepository(this).resetToDefaults()
                 refreshCategories()
                 Toast.makeText(this, "دسته‌ها و وضعیت فعال‌بودن آن‌ها بازگردانی شدند.", Toast.LENGTH_SHORT).show()
             }
