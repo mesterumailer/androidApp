@@ -34,7 +34,7 @@ abstract class BaseActivity : AppCompatActivity() {
         val mask = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(Color.WHITE)
-            cornerRadius = dp(radiusDp).toFloat()
+            cornerRadius = (radiusDp * resources.displayMetrics.density).toFloat()
         }
         return android.graphics.drawable.RippleDrawable(
             ColorStateList.valueOf(getColor(R.color.touch_ripple)),
@@ -44,4 +44,7 @@ abstract class BaseActivity : AppCompatActivity() {
     }
 
 
+
+    protected fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 }
