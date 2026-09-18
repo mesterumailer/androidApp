@@ -135,7 +135,7 @@ class SettingsActivity : BaseActivity() {
             gravity = Gravity.CENTER
             setTextColor(accent)
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            background = roundedBackground(card, 18)
+            background = roundedRippleBackground(card, 18)
             setPadding(dp(12), dp(14), dp(12), dp(14))
             setOnClickListener { showCreateDialog() }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply {
@@ -156,7 +156,7 @@ class SettingsActivity : BaseActivity() {
             textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(getColor(R.color.disabled_text))
-            background = roundedBackground(getColor(R.color.reset_surface), 16)
+            background = roundedRippleBackground(getColor(R.color.reset_surface), 16)
             setPadding(dp(10), dp(12), dp(10), dp(12))
             setOnClickListener { confirmReset() }
         }, LinearLayout.LayoutParams(-1, dp(48)))
@@ -185,7 +185,7 @@ class SettingsActivity : BaseActivity() {
         gravity = Gravity.CENTER_VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(14), dp(12), dp(10), dp(12))
-        background = roundedBackground(card, 20)
+        background = roundedRippleBackground(card, 20)
         elevation = dp(1).toFloat()
         isClickable = true
         setOnClickListener { showRuleEditor(rule) }
@@ -221,7 +221,7 @@ class SettingsActivity : BaseActivity() {
             textSize = 12f
             gravity = Gravity.CENTER
             setTextColor(accent)
-            background = roundedBackground(getColor(R.color.accent_surface), 12)
+            background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
             setPadding(dp(11), dp(8), dp(11), dp(8))
             contentDescription = "ویرایش ${rule.displayName}"
             setOnClickListener { showRuleEditor(rule) }
