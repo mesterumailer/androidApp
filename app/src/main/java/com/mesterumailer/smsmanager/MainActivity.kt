@@ -50,6 +50,7 @@ import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsInboxFilter
 import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
+import java.util.Calendar
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
@@ -553,15 +554,21 @@ class MainActivity : Activity() {
         processingExecutor.execute {
             try {
                 val rules = FilterRuleRepository(this).loadRules()
-                val limit = SmsSettingsRepository(this).getInboxLimit()
-                val messages = applyMessageOverrides(SmsRepository(contentResolver, rules).getInbox(limit))
+                val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
+                val untilTimestampExclusive = readSettings.untilDateStartMillis?.let(::startOfNextDay)
+                val messages = applyMessageOverrides(
+                    SmsRepository(contentResolver, rules).getInbox(
+                        limit = readSettings.limit,
+                        untilTimestampExclusive = untilTimestampExclusive
+                    )
+                )
                 runOnUiThread {
                     if (token != processingToken || isFinishing) return@runOnUiThread
                     currentRules = rules
                     currentMessages = messages
                     createCategoryFilterButtons()
                     requestRender("در حال نمایش پیام‌ها...")
-                    statusView.contentDescription = "صندوق پیامک؛ تا " + limit + " پیامک اخیر"
+                    statusView.contentDescription = buildReadWindowSummary(readSettings)
                 }
             } catch (securityException: SecurityException) {
                 runOnUiThread {
@@ -578,6 +585,24 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    private fun buildReadWindowSummary(
+        settings: com.mesterumailer.smsmanager.data.InboxReadSettings
+    ): String = when (settings.mode) {
+        com.mesterumailer.smsmanager.data.InboxReadMode.UNTIL_TODAY ->
+            "صندوق پیامک؛ ${settings.limit} پیامک تا امروز"
+        com.mesterumailer.smsmanager.data.InboxReadMode.UNTIL_DATE -> {
+            val date = settings.untilDateStartMillis?.let { Date(it) }
+            val formatted = date?.let { DateFormat.getDateFormat(this).format(it) } ?: "تاریخ مشخص"
+            "صندوق پیامک؛ ${settings.limit} پیامک تا $formatted"
+        }
+    }
+
+    private fun startOfNextDay(startMillis: Long): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = startMillis
+            add(Calendar.DAY_OF_YEAR, 1)
+        }.timeInMillis
 
     private fun visibleMessages(): List<SmsMessage> {
         val ids = categoryDefinitions().map { it.first }
