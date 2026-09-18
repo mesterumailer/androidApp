@@ -24,3 +24,26 @@ abstract class BaseActivity : AppCompatActivity() {
             recreate()
         }
     }
+
+    protected fun roundedRippleBackground(color: Int, radiusDp: Int): android.graphics.drawable.RippleDrawable {
+        val content = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = dp(radiusDp).toFloat()
+        }
+        val mask = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(Color.WHITE)
+            cornerRadius = dp(radiusDp).toFloat()
+        }
+        return android.graphics.drawable.RippleDrawable(
+            ColorStateList.valueOf(getColor(R.color.touch_ripple)),
+            content,
+            mask
+        )
+    }
+
+    protected fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
+}
