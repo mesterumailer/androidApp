@@ -214,6 +214,149 @@ class AppSettingsActivity : BaseActivity() {
         return root
     }
 
+
+    private fun buildBlockSettingsCard(): View {
+        val repository = SmsBlockRepository(this)
+        val settings = repository.getSettings()
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = roundedBackground(card, 22)
+            elevation = dp(1).toFloat()
+
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "فیلتر مسدودسازی"
+                textSize = 18f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "پیام قبل از دسته‌بندی از این فیلتر عبور می‌کند. موارد مسدودشده در Inbox برنامه نمایش داده نمی‌شوند و SMS اصلی گوشی حذف نمی‌شود."
+                textSize = 13f
+                setTextColor(secondary)
+                setLineSpacing(0f, 1.12f)
+                setPadding(0, dp(6), 0, dp(14))
+            })
+
+            addView(blockSectionTitle("شماره‌ها و فرستنده‌های مسدود", settings.blockedSenders.size))
+            settings.blockedSenders.forEach { value ->
+                addView(blockRuleRow(value) {
+                    repository.removeBlockedSender(value)
+                    recreate()
+                })
+            }
+            addBlockButton("افزودن شماره یا فرستنده") { showAddBlockDialog(true) }
+
+            addView(blockSectionTitle("عبارت‌های محتوایی مسدود", settings.blockedContent.size).apply {
+                setPadding(0, dp(18), 0, dp(8))
+            })
+            settings.blockedContent.forEach { value ->
+                addView(blockRuleRow(value) {
+                    repository.removeBlockedContent(value)
+                    recreate()
+                })
+            }
+            addBlockButton("افزودن عبارت محتوایی") { showAddBlockDialog(false) }
+
+            if (settings.blockedSenders.isNotEmpty() || settings.blockedContent.isNotEmpty()) {
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = "حذف همه فیلترهای مسدودسازی"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(getColor(R.color.disabled_text))
+                    background = rippleSurfaceBackground(getColor(R.color.reset_surface), 14)
+                    setPadding(dp(10), dp(11), dp(10), dp(11))
+                    setOnClickListener {
+                        repository.clearAll()
+                        recreate()
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+            }
+        }
+    }
+
+    private fun blockSectionTitle(title: String, count: Int): TextView = TextView(this).apply {
+        text = if (count == 0) title else "$title  •  $count"
+        textSize = 13f
+        setTextColor(primary)
+        setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        setPadding(0, 0, 0, dp(8))
+    }
+
+    private fun blockRuleRow(value: String, onRemove: () -> Unit): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(10), dp(8), dp(10), dp(8))
+        background = roundedBackground(getColor(R.color.soft_surface), 14)
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = value
+            textSize = 13f
+            setTextColor(primary)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+        })
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = "حذف"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(getColor(R.color.promotion_text))
+            background = roundedRippleBackground(getColor(R.color.card_background), 12)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            contentDescription = "حذف فیلتر $value"
+            setOnClickListener { onRemove() }
+        }, LinearLayout.LayoutParams(-2, dp(38)).apply { marginStart = dp(6) })
+    }.apply {
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) }
+    }
+
+    private fun addBlockButton(label: String, action: () -> Unit): View = TextView(this).apply {
+        text = "+  $label"
+        textSize = 13f
+        gravity = Gravity.CENTER
+        setTextColor(accent)
+        setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        background = roundedRippleBackground(getColor(R.color.accent_surface), 14)
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        setOnClickListener { action() }
+    }.apply {
+        layoutParams = LinearLayout.LayoutParams(-1, dp(44)).apply { bottomMargin = dp(2) }
+    }
+
+    private fun showAddBlockDialog(isSender: Boolean) {
+        val editor = EditText(this).apply {
+            hint = if (isSender) "مثلاً 09121234567 یا نام فرستنده" else "مثلاً تبلیغ، برنده شدید، کد تخفیف..."
+            textSize = 14f
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (isSender) "افزودن شماره یا فرستنده" else "افزودن عبارت مسدود")
+            .setMessage(if (isSender)
+                "هر پیامکی که شماره یا نام فرستنده آن شامل این عبارت باشد، قبل از دسته‌بندی کنار گذاشته می‌شود."
+                else
+                "هر پیامکی که متن آن شامل این عبارت باشد، قبل از دسته‌بندی کنار گذاشته می‌شود.")
+            .setView(editor)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("افزودن") { _, _ ->
+                val value = editor.text.toString().trim()
+                if (value.isBlank()) {
+                    Toast.makeText(this, "مقدار را وارد کنید.", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val repository = SmsBlockRepository(this)
+                val added = if (isSender) repository.addBlockedSender(value) else repository.addBlockedContent(value)
+                Toast.makeText(
+                    this,
+                    if (added) "فیلتر مسدودسازی اضافه شد." else "این فیلتر قبلاً وجود دارد.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                if (added) recreate()
+            }
+            .show()
+    }
+
     private fun inboxRangeOption(mode: InboxReadMode, selected: InboxReadMode): TextView = TextView(this).apply {
         text = mode.label
         textSize = 13f
