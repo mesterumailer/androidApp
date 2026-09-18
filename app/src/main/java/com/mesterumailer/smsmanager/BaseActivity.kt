@@ -41,10 +41,4 @@ abstract class BaseActivity : AppCompatActivity() {
             content,
             mask
         )
-    }
-
-
-
-    protected fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
-}
+    }}
