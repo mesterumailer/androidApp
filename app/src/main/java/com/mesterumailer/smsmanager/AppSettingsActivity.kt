@@ -12,11 +12,13 @@ import android.graphics.Typeface
 import android.graphics.Color
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ScrollView
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationManagerCompat
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
@@ -230,7 +232,13 @@ class AppSettingsActivity : BaseActivity() {
             setLineSpacing(0f, 1.1f)
             setPadding(dp(4), dp(4), dp(4), 0)
         })
-        root.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(body, ViewGroup.LayoutParams(-1, -2))
+        }
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return root
     }
 
