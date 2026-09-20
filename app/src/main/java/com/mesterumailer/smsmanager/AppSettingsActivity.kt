@@ -149,7 +149,7 @@ class AppSettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "تعداد پیامک‌های قابل خواندن و تاریخ مرجع را مشخص کنید."
+                text = "تعداد پیامک‌های قابل بررسی را مشخص کنید؛ به‌صورت پیش‌فرض همیشه جدیدترین پیام‌ها بررسی می‌شوند."
                 textSize = 13f
                 setTextColor(secondary)
                 setPadding(0, dp(6), 0, dp(14))
@@ -189,7 +189,7 @@ class AppSettingsActivity : BaseActivity() {
             addView(limitRow)
 
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "محدوده زمانی"
+                text = "محدوده خواندن"
                 textSize = 14f
                 setTextColor(primary)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
@@ -200,7 +200,7 @@ class AppSettingsActivity : BaseActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 layoutDirection = View.LAYOUT_DIRECTION_RTL
             }
-            rangeOptions.addView(inboxRangeOption(InboxReadMode.UNTIL_TODAY, readSettings.mode), LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            rangeOptions.addView(inboxRangeOption(InboxReadMode.LATEST_MESSAGES, readSettings.mode), LinearLayout.LayoutParams(0, dp(48), 1f).apply {
                 marginStart = dp(5)
             })
             rangeOptions.addView(inboxRangeOption(InboxReadMode.UNTIL_DATE, readSettings.mode), LinearLayout.LayoutParams(0, dp(48), 1f).apply {
@@ -226,7 +226,7 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(TextView(this).apply {
-            text = "در «تا امروز»، سقف پیامک‌ها از جدیدترین پیام‌ها محاسبه می‌شود. در «تا تاریخ مشخص»، پیام‌های بعد از تاریخ انتخاب‌شده وارد خواندن نمی‌شوند."
+            text = "در «آخرین پیام‌ها»، سقف پیامک‌ها همیشه از جدیدترین پیام‌های دریافتی محاسبه می‌شود. «تا تاریخ مشخص» فقط زمانی اعمال می‌شود که خود کاربر آن را انتخاب کند."
             textSize = 12f
             setTextColor(secondary)
             setLineSpacing(0f, 1.1f)
