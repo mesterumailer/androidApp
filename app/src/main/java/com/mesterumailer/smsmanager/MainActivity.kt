@@ -589,7 +589,11 @@ class MainActivity : BaseActivity() {
             try {
                 val rules = FilterRuleRepository(this).loadRules()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
-                val untilTimestampExclusive = readSettings.untilDateStartMillis?.let(::startOfNextDay)
+                val untilTimestampExclusive = if (readSettings.mode == InboxReadMode.UNTIL_DATE) {
+                    readSettings.untilDateStartMillis?.let(::startOfNextDay)
+                } else {
+                    null
+                }
                 inboxSortOrder = readSettings.sortOrder
                 val activeRuleIds = CategoryActivationRepository(this)
                     .activeCategoryIds(rules.map { it.categoryId })
@@ -653,8 +657,8 @@ class MainActivity : BaseActivity() {
     private fun buildReadWindowSummary(
         settings: com.mesterumailer.smsmanager.data.InboxReadSettings
     ): String = when (settings.mode) {
-        com.mesterumailer.smsmanager.data.InboxReadMode.UNTIL_TODAY ->
-            "صندوق پیامک؛ ${settings.limit} پیامک تا امروز"
+        com.mesterumailer.smsmanager.data.InboxReadMode.LATEST_MESSAGES ->
+            "صندوق پیامک؛ ${settings.limit} پیامک اخیر"
         com.mesterumailer.smsmanager.data.InboxReadMode.UNTIL_DATE -> {
             val date = settings.untilDateStartMillis?.let { Date(it) }
             val formatted = date?.let { DateFormat.getDateFormat(this).format(it) } ?: "تاریخ مشخص"
