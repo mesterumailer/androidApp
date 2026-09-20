@@ -5,12 +5,15 @@ import java.util.Calendar
 import java.util.GregorianCalendar
 
 enum class InboxReadMode(val id: String, val label: String) {
-    UNTIL_TODAY("until_today", "تا امروز"),
+    LATEST_MESSAGES("latest_messages", "آخرین پیام‌ها"),
     UNTIL_DATE("until_date", "تا تاریخ مشخص");
 
     companion object {
         fun fromId(id: String?): InboxReadMode =
-            values().firstOrNull { it.id == id } ?: UNTIL_TODAY
+            when (id) {
+                "until_today" -> LATEST_MESSAGES
+                else -> values().firstOrNull { it.id == id } ?: LATEST_MESSAGES
+            }
     }
 }
 
