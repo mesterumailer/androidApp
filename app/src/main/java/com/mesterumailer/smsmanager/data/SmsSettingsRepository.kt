@@ -14,10 +14,21 @@ enum class InboxReadMode(val id: String, val label: String) {
     }
 }
 
+enum class InboxSortOrder(val id: String, val label: String) {
+    NEWEST_FIRST("newest_first", "جدیدتر به قدیمی‌تر"),
+    OLDEST_FIRST("oldest_first", "قدیمی‌تر به جدیدتر");
+
+    companion object {
+        fun fromId(id: String?): InboxSortOrder =
+            values().firstOrNull { it.id == id } ?: NEWEST_FIRST
+    }
+}
+
 data class InboxReadSettings(
     val limit: Int,
     val mode: InboxReadMode,
-    val untilDateStartMillis: Long?
+    val untilDateStartMillis: Long?,
+    val sortOrder: InboxSortOrder
 )
 
 class SmsSettingsRepository(context: Context) {
@@ -34,6 +45,7 @@ class SmsSettingsRepository(context: Context) {
         private const val KEY_INBOX_LIMIT = "inbox_limit"
         private const val KEY_INBOX_READ_MODE = "inbox_read_mode"
         private const val KEY_INBOX_DATE_START = "inbox_date_start"
+        private const val KEY_INBOX_SORT_ORDER = "inbox_sort_order"
     }
 
     private val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -56,6 +68,17 @@ class SmsSettingsRepository(context: Context) {
     fun setInboxReadMode(mode: InboxReadMode) {
         preferences.edit()
             .putString(KEY_INBOX_READ_MODE, mode.id)
+            .apply()
+    }
+
+    fun getInboxSortOrder(): InboxSortOrder =
+        InboxSortOrder.fromId(
+            preferences.getString(KEY_INBOX_SORT_ORDER, InboxSortOrder.NEWEST_FIRST.id)
+        )
+
+    fun setInboxSortOrder(order: InboxSortOrder) {
+        preferences.edit()
+            .putString(KEY_INBOX_SORT_ORDER, order.id)
             .apply()
     }
 
@@ -93,7 +116,8 @@ class SmsSettingsRepository(context: Context) {
         InboxReadSettings(
             limit = getInboxLimit(),
             mode = getInboxReadMode(),
-            untilDateStartMillis = getInboxDateStartMillis()
+            untilDateStartMillis = getInboxDateStartMillis(),
+            sortOrder = getInboxSortOrder()
         )
 }
 
