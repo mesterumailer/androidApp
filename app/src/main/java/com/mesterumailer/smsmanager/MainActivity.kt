@@ -42,6 +42,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
+import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.InboxSortOrder
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.model.FilterRule
