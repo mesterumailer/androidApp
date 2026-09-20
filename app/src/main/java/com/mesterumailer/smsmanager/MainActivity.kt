@@ -42,6 +42,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
+import com.mesterumailer.smsmanager.data.InboxSortOrder
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
@@ -64,6 +65,8 @@ class MainActivity : BaseActivity() {
     private val selectedIds = linkedSetOf<Long>()
     private var currentMessages: List<SmsMessage> = emptyList()
     private var currentRules: List<FilterRule> = emptyList()
+    private var inboxSortOrder: InboxSortOrder = InboxSortOrder.NEWEST_FIRST
+    private lateinit var sortButton: TextView
     private var selectionBar: LinearLayout? = null
     private lateinit var processingOverlay: FrameLayout
     private lateinit var processingMessage: TextView
@@ -195,10 +198,11 @@ class MainActivity : BaseActivity() {
 
         processingExecutor.execute {
             val filtered = SmsInboxFilter.filter(source, visibleIds, query)
-            val linkifiedBodies = filtered.associate { it.id to linkifyBody(it.body) }
+            val ordered = sortForDisplay(filtered)
+            val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(filtered, source.size, query, token, linkifiedBodies)
+                renderFilteredMessages(ordered, source.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -426,6 +430,24 @@ class MainActivity : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
         }
         addView(statusView)
+        inboxSortOrder = SmsSettingsRepository(this@MainActivity).getInboxSortOrder()
+        sortButton = TextView(this@MainActivity).apply {
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            contentDescription = "تغییر ترتیب نمایش پیام‌ها"
+            setOnClickListener {
+                inboxSortOrder = when (inboxSortOrder) {
+                    InboxSortOrder.NEWEST_FIRST -> InboxSortOrder.OLDEST_FIRST
+                    InboxSortOrder.OLDEST_FIRST -> InboxSortOrder.NEWEST_FIRST
+                }
+                SmsSettingsRepository(this@MainActivity).setInboxSortOrder(inboxSortOrder)
+                refreshSortButton()
+                requestRender("در حال تغییر ترتیب نمایش...")
+            }
+            layoutParams = LinearLayout.LayoutParams(-2, dp(42)).apply { marginStart = dp(8) }
+        }
+        addView(sortButton)
         addView(TextView(this@MainActivity).apply {
             text = "↻"
             textSize = 24f
@@ -436,6 +458,7 @@ class MainActivity : BaseActivity() {
             setOnClickListener { loadInbox() }
             layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginStart = dp(8) }
         })
+        refreshSortButton()
     }
 
     private fun buildSelectionBar(): LinearLayout = LinearLayout(this).apply {
@@ -567,6 +590,7 @@ class MainActivity : BaseActivity() {
                 val rules = FilterRuleRepository(this).loadRules()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
                 val untilTimestampExclusive = readSettings.untilDateStartMillis?.let(::startOfNextDay)
+                inboxSortOrder = readSettings.sortOrder
                 val activeRuleIds = CategoryActivationRepository(this)
                     .activeCategoryIds(rules.map { it.categoryId })
                 val classificationRules = rules.filter { it.categoryId in activeRuleIds }
@@ -585,6 +609,7 @@ class MainActivity : BaseActivity() {
                     if (token != processingToken || isFinishing) return@runOnUiThread
                     currentRules = rules
                     currentMessages = messages
+                    refreshSortButton()
                     createCategoryFilterButtons()
                     showPendingNotificationIfReady()
                     requestRender("در حال نمایش پیام‌ها...")
@@ -605,6 +630,25 @@ class MainActivity : BaseActivity() {
             }
         }
     }
+
+    private fun refreshSortButton() {
+        if (!::sortButton.isInitialized) return
+        sortButton.text = when (inboxSortOrder) {
+            InboxSortOrder.NEWEST_FIRST -> "جدید → قدیم"
+            InboxSortOrder.OLDEST_FIRST -> "قدیم → جدید"
+        }
+        sortButton.setTextColor(if (inboxSortOrder == InboxSortOrder.NEWEST_FIRST) accent else secondaryText)
+        sortButton.background = roundedRippleBackground(
+            if (inboxSortOrder == InboxSortOrder.NEWEST_FIRST) getColor(R.color.accent_surface) else getColor(R.color.soft_surface),
+            14
+        )
+    }
+
+    private fun sortForDisplay(messages: List<SmsMessage>): List<SmsMessage> =
+        when (inboxSortOrder) {
+            InboxSortOrder.NEWEST_FIRST -> messages
+            InboxSortOrder.OLDEST_FIRST -> messages.asReversed()
+        }
 
     private fun buildReadWindowSummary(
         settings: com.mesterumailer.smsmanager.data.InboxReadSettings
@@ -664,10 +708,11 @@ class MainActivity : BaseActivity() {
         val query = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
             val filtered = SmsInboxFilter.filter(messages, visibleIds, query)
-            val linkifiedBodies = filtered.associate { it.id to linkifyBody(it.body) }
+            val ordered = sortForDisplay(filtered)
+            val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(filtered, messages.size, query, token, linkifiedBodies)
+                renderFilteredMessages(ordered, messages.size, query, token, linkifiedBodies)
             }
         }
     }
