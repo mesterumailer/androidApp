@@ -65,7 +65,7 @@ class SmsSettingsRepository(context: Context) {
 
     fun getInboxReadMode(): InboxReadMode =
         InboxReadMode.fromId(
-            preferences.getString(KEY_INBOX_READ_MODE, InboxReadMode.UNTIL_TODAY.id)
+            preferences.getString(KEY_INBOX_READ_MODE, InboxReadMode.LATEST_MESSAGES.id)
         )
 
     fun setInboxReadMode(mode: InboxReadMode) {
