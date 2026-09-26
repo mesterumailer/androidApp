@@ -1,6 +1,8 @@
 package com.mesterumailer.smsmanager.data
 
 import android.content.ContentResolver
+import android.os.SystemClock
+import android.util.Log
 import android.provider.Telephony
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsMessage
@@ -18,7 +20,9 @@ class SmsRepository(
         limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT,
         untilTimestampExclusive: Long? = null
     ): List<SmsMessage> {
+        val startedAt = SystemClock.elapsedRealtime()
         val messages = mutableListOf<SmsMessage>()
+        var blockedCount = 0
         val projection = arrayOf(
             Telephony.Sms._ID,
             Telephony.Sms.ADDRESS,
@@ -46,7 +50,10 @@ class SmsRepository(
                 val address = cursor.getString(addressIndex).orEmpty()
 
                 // Blocked messages are discarded before classification, extraction or UI creation.
-                if (blockFilter.isBlocked(address, body)) continue
+                if (blockFilter.isBlocked(address, body)) {
+                    blockedCount += 1
+                    continue
+                }
 
                 messages += SmsMessage(
                     id = cursor.getLong(idIndex),
@@ -58,6 +65,11 @@ class SmsRepository(
             }
         }
 
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        Log.d(
+            "SmsPerformance",
+            "getInbox limit=$limit returned=${messages.size} blocked=$blockedCount elapsedMs=$elapsedMs"
+        )
         return messages
     }
 }
