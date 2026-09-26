@@ -21,9 +21,13 @@ object SmsNotificationManager {
     const val EXTRA_TIMESTAMP = "sms_notification_timestamp"
     const val EXTRA_CATEGORY_LABEL = "sms_notification_category_label"
 
-    private const val CHANNEL_PREFIX = "sms_category_"
+    private const val CHANNEL_PREFIX = "sms_category_v2_"
+    private const val LEGACY_CHANNEL_PREFIX = "sms_category_"
 
     fun channelId(categoryId: String): String = CHANNEL_PREFIX + categoryId
+
+    private fun legacyChannelId(categoryId: String): String =
+        LEGACY_CHANNEL_PREFIX + categoryId
 
     fun ensureChannel(
         context: Context,
@@ -34,6 +38,9 @@ object SmsNotificationManager {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channelId(categoryId)) == null) {
+            // The previous channel used this legacy ID and could have been created with LOW importance.
+            // Channel behavior is immutable after creation, so migrate to a fresh v2 channel.
+            manager.deleteNotificationChannel(legacyChannelId(categoryId))
             manager.createNotificationChannel(buildChannel(categoryId, categoryLabel, soundUri))
         }
     }
@@ -47,6 +54,7 @@ object SmsNotificationManager {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.deleteNotificationChannel(channelId(categoryId))
+        manager.deleteNotificationChannel(legacyChannelId(categoryId))
         manager.createNotificationChannel(buildChannel(categoryId, categoryLabel, soundUri))
     }
 
@@ -113,11 +121,7 @@ object SmsNotificationManager {
         NotificationChannel(
             channelId(categoryId),
             "پیامک‌های $categoryLabel",
-            if (soundUri == null) {
-                NotificationManager.IMPORTANCE_LOW
-            } else {
-                NotificationManager.IMPORTANCE_DEFAULT
-            }
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "اعلان پیامک‌های دسته «$categoryLabel»"
             enableVibration(false)
