@@ -130,7 +130,7 @@ Baseline رفتارهای فعلی در `REGRESSION_BASELINE.md` و بازخور
 
 ### 4.1 صدای Notification
 
-در تست عملی روی گوشی گزارش شده که با وجود انتخاب صدای اختصاصی برای یک category، هنگام رسیدن SMS و نمایش Notification صدایی پخش نشده است.
+در تست عملی روی گوشی گزارش شد که با وجود انتخاب صدای اختصاصی برای یک category، هنگام رسیدن SMS و نمایش Notification صدایی پخش نشده است. بررسی کاربر همچنین نشان داد که در تنظیمات Android برای Notification Category مربوطه، Sound غیرفعال بوده است.
 
 کد فعلی از Android Notification Channel استفاده می‌کند:
 
@@ -140,9 +140,9 @@ Baseline رفتارهای فعلی در `REGRESSION_BASELINE.md` و بازخور
 - `setSound(soundUri, AudioAttributes...)` روی Channel اعمال می‌شود.
 - ویبره روی Channel غیرفعال است.
 
-**این مورد هنوز Root Cause قطعی ندارد. GitHub Issue آن: [#4](https://github.com/mesterumailer/androidApp/issues/4).**
+**Root cause به احتمال بسیار بالا با Channel قدیمی و Importance/Sound state آن مرتبط بود. GitHub Issue: [#4](https://github.com/mesterumailer/androidApp/issues/4). اصلاح اعمال شده، اما تا تست واقعی دستگاه موفق نباشد مورد بسته‌شده محسوب نمی‌شود.**
 
-عامل‌های احتمالی که باید در ادامه بررسی شوند:
+برای verification نهایی این موارد باید روی دستگاه واقعی بررسی شوند:
 
 1. رفتار Notification Channel در نسخه Android/ROM دستگاه آزمایشی
 2. وضعیت Channel در تنظیمات سیستم Android
@@ -153,7 +153,7 @@ Baseline رفتارهای فعلی در `REGRESSION_BASELINE.md` و بازخور
 7. lifecycle و delete/recreate شدن Channel
 8. اینکه Channel قدیمی با state متفاوت در سیستم باقی مانده باشد
 
-این مسئله باید به‌عنوان Bug واقعی در نظر گرفته شود و قبل از اعلام پایداری کامل Notification رفع و روی دستگاه واقعی دوباره تست شود.
+این مسئله تا زمان موفقیت تست دستگاه واقعی باز است. پس از آن، Issue و Feedback فقط در صورت موفقیت verification بسته شوند.
 
 ---
 
