@@ -21,13 +21,20 @@ object SmsNotificationManager {
     const val EXTRA_TIMESTAMP = "sms_notification_timestamp"
     const val EXTRA_CATEGORY_LABEL = "sms_notification_category_label"
 
-    private const val CHANNEL_PREFIX = "sms_category_v2_"
+    private const val CHANNEL_PREFIX = "sms_category_v3_"
     private const val LEGACY_CHANNEL_PREFIX = "sms_category_"
+    private const val V2_CHANNEL_PREFIX = "sms_category_v2_"
 
-    fun channelId(categoryId: String): String = CHANNEL_PREFIX + categoryId
+    fun channelId(categoryId: String, soundUri: Uri?): String {
+        val soundKey = soundUri?.toString()?.let { Integer.toHexString(it.hashCode()) } ?: "silent"
+        return CHANNEL_PREFIX + categoryId + "_" + soundKey
+    }
 
     private fun legacyChannelId(categoryId: String): String =
         LEGACY_CHANNEL_PREFIX + categoryId
+
+    private fun v2ChannelId(categoryId: String): String =
+        V2_CHANNEL_PREFIX + categoryId
 
     fun ensureChannel(
         context: Context,
@@ -37,11 +44,19 @@ object SmsNotificationManager {
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(channelId(categoryId)) == null) {
-            // The previous channel used this legacy ID and could have been created with LOW importance.
-            // Channel behavior is immutable after creation, so migrate to a fresh v2 channel.
+        val targetChannelId = channelId(categoryId, soundUri)
+        if (manager.getNotificationChannel(targetChannelId) == null) {
+            // Android notification channel behavior is persistent. A new ID per category + sound
+            // guarantees that an old silent/muted channel does not override the new selection.
+            manager.notificationChannels
+                .filter { it.id.startsWith(CHANNEL_PREFIX + categoryId + "_") }
+                .filterNot { it.id == targetChannelId }
+                .forEach { manager.deleteNotificationChannel(it.id) }
+            manager.deleteNotificationChannel(v2ChannelId(categoryId))
             manager.deleteNotificationChannel(legacyChannelId(categoryId))
-            manager.createNotificationChannel(buildChannel(categoryId, categoryLabel, soundUri))
+            manager.createNotificationChannel(
+                buildChannel(categoryId, categoryLabel, soundUri, targetChannelId)
+            )
         }
     }
 
@@ -53,9 +68,16 @@ object SmsNotificationManager {
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.deleteNotificationChannel(channelId(categoryId))
+        val targetChannelId = channelId(categoryId, soundUri)
+        manager.notificationChannels
+            .filter { it.id.startsWith(CHANNEL_PREFIX + categoryId + "_") }
+            .filterNot { it.id == targetChannelId }
+            .forEach { manager.deleteNotificationChannel(it.id) }
+        manager.deleteNotificationChannel(v2ChannelId(categoryId))
         manager.deleteNotificationChannel(legacyChannelId(categoryId))
-        manager.createNotificationChannel(buildChannel(categoryId, categoryLabel, soundUri))
+        manager.createNotificationChannel(
+            buildChannel(categoryId, categoryLabel, soundUri, targetChannelId)
+        )
     }
 
     fun notifyIncoming(
@@ -75,6 +97,7 @@ object SmsNotificationManager {
         ) return
 
         ensureChannel(context, categoryId, categoryLabel, soundUri)
+        val targetChannelId = channelId(categoryId, soundUri)
 
         val notificationId = (address + "|" + timestamp + "|" + body).hashCode()
         val contentIntent = Intent(context, MainActivity::class.java).apply {
@@ -93,7 +116,7 @@ object SmsNotificationManager {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = NotificationCompat.Builder(context, channelId(categoryId))
+        val builder = NotificationCompat.Builder(context, targetChannelId)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(address.ifBlank { "پیامک جدید" })
             .setContentText(preview(body))
@@ -116,10 +139,11 @@ object SmsNotificationManager {
     private fun buildChannel(
         categoryId: String,
         categoryLabel: String,
-        soundUri: Uri?
+        soundUri: Uri?,
+        channelId: String
     ): NotificationChannel =
         NotificationChannel(
-            channelId(categoryId),
+            channelId,
             "پیامک‌های $categoryLabel",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
