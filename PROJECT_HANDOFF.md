@@ -118,7 +118,15 @@
 
 ---
 
-## 4. Known Issues فعلی
+## 4. Improvement Phase
+
+از این نقطه پروژه وارد چرخه بهبود محصول شده است: بازخورد واقعی → بازتولید → Root Cause → تغییر حداقلی و ایمن → Regression Test → Device Test در موارد لازم → به‌روزرسانی مستندات → Verify.
+
+Baseline رفتارهای فعلی در `REGRESSION_BASELINE.md` و بازخوردهای مشاهده‌شده در `PRODUCT_FEEDBACK.md` ثبت می‌شوند. این دو فایل برای جلوگیری از regression باید همراه تغییرات مهم به‌روز بمانند.
+
+قاعده این فاز: قابلیت‌های فعلی تا حد امکان باید بدون تغییر رفتاری حفظ شوند. قبل از هر refactor یا feature بزرگ، اثر آن بر baseline بررسی شود.
+
+## 5. Known Issues فعلی
 
 ### 4.1 صدای Notification
 
@@ -149,7 +157,7 @@
 
 ---
 
-## 5. مدل دسته‌بندی فعلی
+## 6. مدل دسته‌بندی فعلی
 
 Enum اصلی:
 
@@ -166,7 +174,7 @@ UNKNOWN      -> unknown       -> سایر
 
 ---
 
-## 6. Rule Engine
+## 7. Rule Engine
 
 مدل `FilterRule` دارای این فیلدها است:
 
@@ -217,7 +225,7 @@ Categoryهای اولیه:
 
 ---
 
-## 7. مسیر پردازش Inbox
+## 8. مسیر پردازش Inbox
 
 ```text
 Android Telephony.Sms.Inbox
@@ -264,7 +272,7 @@ Android Telephony.Sms.Inbox
 
 ---
 
-## 8. مسیر دریافت SMS زنده
+## 9. مسیر دریافت SMS زنده
 
 Receiver:
 
@@ -309,7 +317,7 @@ android.provider.Telephony.SMS_RECEIVED
 
 ---
 
-## 9. Notification Architecture
+## 10. Notification Architecture
 
 فایل اصلی:
 
@@ -345,7 +353,7 @@ Android 13+:
 
 ---
 
-## 10. تنظیمات محلی و SharedPreferences
+## 11. تنظیمات محلی و SharedPreferences
 
 پروژه فعلی دیتابیس Room ندارد. State محلی با `SharedPreferences` نگهداری می‌شود.
 
@@ -514,7 +522,7 @@ inbox_sort_order
 
 ---
 
-## 11. تنظیمات Inbox
+## 12. تنظیمات Inbox
 
 ثابت‌های فعلی:
 
@@ -544,7 +552,7 @@ OLDEST_FIRST
 
 ---
 
-## 12. جست‌وجو و فیلتر نمایش
+## 13. جست‌وجو و فیلتر نمایش
 
 فایل:
 
@@ -581,7 +589,7 @@ source Inbox
 
 ---
 
-## 13. Override دسته‌بندی
+## 14. Override دسته‌بندی
 
 کاربر می‌تواند category یک پیام را به‌صورت دستی تغییر دهد.
 
@@ -596,7 +604,7 @@ source Inbox
 
 ---
 
-## 14. Permissions
+## 15. Permissions
 
 Manifest فعلی:
 
@@ -630,7 +638,7 @@ Notification permission در Android 13+ فقط وقتی لازم باشد در�
 
 ---
 
-## 15. ساختار سورس
+## 16. ساختار سورس
 
 ```text
 app/src/main/java/com/mesterumailer/smsmanager/
@@ -671,7 +679,7 @@ app/src/main/java/com/mesterumailer/smsmanager/
 
 ---
 
-## 16. تست‌ها
+## 17. تست‌ها
 
 تست‌های فعلی در:
 
@@ -712,7 +720,7 @@ Unit Test نمی‌تواند جای تست واقعی SMS receiver و Notificat
 
 ---
 
-## 17. تست دستی مرجع
+## 18. تست دستی مرجع
 
 برای نسخه فعلی این سناریوها باید تست شوند:
 
@@ -744,7 +752,7 @@ Unit Test نمی‌تواند جای تست واقعی SMS receiver و Notificat
 
 ---
 
-## 18. CI / GitHub Actions
+## 19. CI / GitHub Actions
 
 ### Debug workflow
 
@@ -800,7 +808,7 @@ Keystore نباید وارد repository شود.
 
 ---
 
-## 19. Git وضعیت فعلی
+## 20. Git وضعیت فعلی
 
 Branch اصلی توسعه:
 
@@ -854,7 +862,7 @@ feature/phase-1-sms-inbox
 
 ---
 
-## 20. سیاست پیشنهادی Git برای ادامه
+## 21. سیاست پیشنهادی Git برای ادامه
 
 مدل توسعه:
 
@@ -878,7 +886,7 @@ main
 
 ---
 
-## 21. ترتیب ادامه توسعه پیشنهادی
+## 22. ترتیب ادامه توسعه پیشنهادی
 
 ### اولویت 1 — رفع Notification Sound Bug
 
@@ -939,7 +947,7 @@ Room
 
 ---
 
-## 22. اصول مهندسی پروژه
+## 23. اصول مهندسی پروژه
 
 Agent بعدی باید این اصول را حفظ کند:
 
@@ -960,7 +968,7 @@ Agent بعدی باید این اصول را حفظ کند:
 
 ---
 
-## 23. فایل‌هایی که Agent معمولاً باید ابتدا بخواند
+## 24. فایل‌هایی که Agent معمولاً باید ابتدا بخواند
 
 برای هر task جدید، ترتیب پیشنهادی:
 
@@ -1013,7 +1021,7 @@ SmsInboxFilter.kt
 
 ---
 
-## 24. قرارداد توسعه برای Agent جدید
+## 25. قرارداد توسعه برای Agent جدید
 
 وقتی یک Agent جدید وارد پروژه شد، بدون نیاز به پرسیدن سؤالات پایه باید از این فرض‌ها شروع کند:
 
@@ -1051,7 +1059,7 @@ Source of truth به ترتیب:
 
 ---
 
-## 25. Release readiness فعلی
+## 26. Release readiness فعلی
 
 در وضعیت فعلی پروژه را نباید صرفاً بر اساس وجود workflow یا Unit Test «کاملاً آماده Release» فرض کرد.
 
@@ -1073,7 +1081,7 @@ Phase 1
 
 ---
 
-## 26. هدف نزدیک
+## 27. هدف نزدیک
 
 هدف نزدیک پروژه این نیست که فوراً قابلیت‌های زیادی اضافه شود.
 
@@ -1095,7 +1103,7 @@ Phase 1
 
 ---
 
-## 27. آخرین وضعیت ثبت‌شده
+## 28. آخرین وضعیت ثبت‌شده
 
 در آخرین وضعیت ثبت‌شده توسط تیم:
 
