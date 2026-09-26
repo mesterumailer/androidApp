@@ -309,6 +309,20 @@ class MainActivity : BaseActivity() {
             textDirection = View.TEXT_DIRECTION_RTL
             setPadding(dp(4), 0, dp(4), 0)
         }
+        addView(TextView(this@MainActivity).apply {
+            contentDescription = "راهنمای جست‌وجو"
+            text = "ⓘ"
+            textSize = 16f
+            setTextColor(secondaryText)
+            gravity = Gravity.CENTER
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("راهنمای جست‌وجو")
+                    .setMessage("بخشی از متن پیام یا نام/شماره فرستنده را وارد کنید. جست‌وجو به‌صورت زنده انجام می‌شود و می‌تواند هم‌زمان با فیلتر دسته‌ها استفاده شود.")
+                    .setPositiveButton("متوجه شدم", null)
+                    .show()
+            }
+        }, LinearLayout.LayoutParams(dp(30), dp(44)))
         addView(searchInput, LinearLayout.LayoutParams(0, dp(44), 1f))
         searchClear = TextView(this@MainActivity).apply {
             text = "×"
@@ -350,6 +364,13 @@ class MainActivity : BaseActivity() {
             textSize = 15f
             setTextColor(primaryText)
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        })
+        addView(TextView(this@MainActivity).apply {
+            text = "راهنمای کوتاه: با لمس هر دسته، فقط همان دسته را در Inbox نمایش می‌دهید. این فیلتر پیامک را حذف نمی‌کند و با فعال/غیرفعال بودن دسته در تنظیمات جداست."
+            textSize = 11f
+            setTextColor(secondaryText)
+            setLineSpacing(0f, 1.08f)
+            setPadding(0, dp(3), 0, dp(3))
         })
         val horizontal = HorizontalScrollView(this@MainActivity).apply {
             isHorizontalScrollBarEnabled = false
