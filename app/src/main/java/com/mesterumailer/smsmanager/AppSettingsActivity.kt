@@ -561,12 +561,24 @@ class AppSettingsActivity : BaseActivity() {
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "صدای انتخاب‌شده"
     }
 
+    private fun readPickedSoundUri(data: Intent?): Uri? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            data?.getParcelableExtra(
+                RingtoneManager.EXTRA_RINGTONE_PICKED_URI,
+                Uri::class.java
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        }
+
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != SOUND_PICKER_REQUEST_CODE || resultCode != RESULT_OK) return
         val categoryId = pendingSoundCategoryId ?: return
         val label = pendingSoundCategoryLabel ?: categoryId
-        val picked = data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        val picked = readPickedSoundUri(data)
         notificationSettingsRepository.setSoundUri(categoryId, picked)
         SmsNotificationManager.recreateChannel(this, categoryId, label, picked)
         pendingSoundCategoryId = null
