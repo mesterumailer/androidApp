@@ -86,7 +86,7 @@ class AppSettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "ظاهر و تنظیمات عمومی"
+                text = "ظاهر، Inbox، مسدودسازی و اعلان‌ها"
                 textSize = 12f
                 setTextColor(secondary)
                 setPadding(0, dp(3), 0, 0)
@@ -115,7 +115,7 @@ class AppSettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "حالت نمایش برنامه را انتخاب کنید. این انتخاب برای دفعات بعدی هم حفظ می‌شود."
+                text = "راهنمای کوتاه: حالت روشن یا تاریک را انتخاب کنید. انتخاب شما روی خود دستگاه ذخیره می‌شود."
                 textSize = 13f
                 setTextColor(secondary)
                 setLineSpacing(0f, 1.12f)
@@ -149,7 +149,7 @@ class AppSettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "تعداد پیامک‌های قابل بررسی را مشخص کنید؛ به‌صورت پیش‌فرض همیشه جدیدترین پیام‌ها بررسی می‌شوند."
+                text = "راهنمای کوتاه: سقف پیامک مشخص می‌کند چه تعداد پیام برای بررسی خوانده شود. محدوده خواندن و ترتیب نمایش هم از همین بخش کنترل می‌شوند."
                 textSize = 13f
                 setTextColor(secondary)
                 setPadding(0, dp(6), 0, dp(14))
@@ -169,7 +169,7 @@ class AppSettingsActivity : BaseActivity() {
                         setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                     })
                     addView(TextView(this@AppSettingsActivity).apply {
-                        text = "بین ${SmsSettingsRepository.MIN_INBOX_LIMIT} تا ${SmsSettingsRepository.MAX_INBOX_LIMIT} پیامک"
+                        text = "بین ${SmsSettingsRepository.MIN_INBOX_LIMIT} تا ${SmsSettingsRepository.MAX_INBOX_LIMIT} پیامک؛ مقدار کمتر، پردازش سریع‌تری دارد."
                         textSize = 12f
                         setTextColor(secondary)
                         setPadding(0, dp(4), 0, 0)
@@ -226,7 +226,7 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(TextView(this).apply {
-            text = "در «آخرین پیام‌ها»، سقف پیامک‌ها همیشه از جدیدترین پیام‌های دریافتی محاسبه می‌شود. «تا تاریخ مشخص» فقط زمانی اعمال می‌شود که خود کاربر آن را انتخاب کند."
+            text = "راهنمای کوتاه: «آخرین پیام‌ها» پیام‌های جدیدتر را تا سقف تعیین‌شده می‌خواند. در «تا تاریخ مشخص»، فقط پیام‌های تا تاریخ انتخابی وارد بررسی می‌شوند."
             textSize = 12f
             setTextColor(secondary)
             setLineSpacing(0f, 1.1f)
@@ -260,7 +260,7 @@ class AppSettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "پیام قبل از دسته‌بندی از این فیلتر عبور می‌کند. موارد مسدودشده در Inbox برنامه نمایش داده نمی‌شوند و SMS اصلی گوشی حذف نمی‌شود."
+                text = "راهنمای کوتاه: شماره/فرستنده یا عبارت دلخواه را مسدود کنید تا پیام قبل از دسته‌بندی و اعلان کنار گذاشته شود. SMS اصلی گوشی حذف یا تغییر نمی‌کند."
                 textSize = 13f
                 setTextColor(secondary)
                 setLineSpacing(0f, 1.12f)
@@ -403,7 +403,7 @@ class AppSettingsActivity : BaseActivity() {
 
             val permissionGranted = hasNotificationPermission()
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "برای هر دسته جداگانه اعلان را روشن کنید و یک صدای موجود روی گوشی انتخاب کنید. ویبره نداریم و میزان صدا از تنظیمات اعلان Android پیروی می‌کند. پیش‌فرض هر دسته بدون صداست."
+                text = "راهنمای کوتاه: اعلان هر دسته مستقل است. آن را روشن یا خاموش کنید و از صداهای موجود گوشی یک صدا انتخاب کنید؛ ویبره نداریم و صدای اعلان تابع تنظیمات Android است."
                 textSize = 13f
                 setTextColor(secondary)
                 setLineSpacing(0f, 1.12f)
@@ -413,6 +413,13 @@ class AppSettingsActivity : BaseActivity() {
                 text = if (permissionGranted) "دسترسی اعلان Android: فعال" else "دسترسی اعلان Android: غیرفعال"
                 textSize = 12f
                 setTextColor(if (permissionGranted) accent else secondary)
+                setPadding(0, 0, 0, dp(4))
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "نکته: روشن بودن اعلان یک دسته از فعال بودن همان دسته برای نمایش در Inbox مستقل است."
+                textSize = 11f
+                setTextColor(secondary)
+                setLineSpacing(0f, 1.1f)
                 setPadding(0, 0, 0, dp(10))
             })
 
