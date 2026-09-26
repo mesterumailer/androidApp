@@ -4,11 +4,7 @@
 
 > وضعیت فعلی: نسخه `0.7.0` — دریافت زنده پیامک و اعلان‌های دسته‌بندی‌شده
 
-> **راهنمای ادامه توسعه برای Agentها:** برای شناخت دقیق وضعیت واقعی پروژه، معماری، تصمیم‌های قطعی، Known Issueها، وضعیت branch/PR و ترتیب ادامه کار، فایل **[PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)** مرجع continuation است.
->
-> **Baseline حفظ قابلیت‌های موجود:** [REGRESSION_BASELINE.md](REGRESSION_BASELINE.md)
->
-> **دفتر بازخورد واقعی محصول:** [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md)
+> **راهنمای ادامه توسعه برای Agentها:** برای شناخت دقیق وضعیت واقعی پروژه، معماری، تصمیم‌های قطعی، Known Issueها، وضعیت branch/PR و ترتیب پیشنهادی ادامه کار، فایل **[PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)** مرجع اصلی مستندات continuation است.
 
 ## هدف پروژه
 
@@ -21,7 +17,7 @@
 - کاربر بتواند پیام‌ها را از روی متن یا فرستنده جست‌وجو کند.
 - اطلاعات مهم مثل OTP و مبلغ تراکنش را استخراج کنیم.
 
-## روش توسعه از این نقطه
+## Improvement Phase — روش توسعه از این نقطه
 
 از این مرحله پروژه وارد **Improvement Phase** شده است. اولویت اصلی دیگر اضافه‌کردن سریع قابلیت‌های جدید نیست؛ بلکه حفظ رفتار فعلی، بررسی بازخورد استفاده واقعی، رفع دقیق مشکلات و بهبود UX/دقت بدون ایجاد regression است.
 
@@ -54,13 +50,15 @@ Close / Verify
 
 **قاعده مهم:** هیچ قابلیت فعلی نباید صرفاً به‌دلیل refactor یا feature جدید حذف، تضعیف یا تغییر رفتاری داده شود مگر اینکه تصمیم محصولی صریحی ثبت شود.
 
+برای چک‌کردن رفتارهای قابل حفظ به [REGRESSION_BASELINE.md](REGRESSION_BASELINE.md) و برای بازخوردهای واقعی به [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) مراجعه کنید.
+
 ## فاز ۱ — پیاده‌سازی فعلی
 
 ### قابلیت‌های موجود
 
 - درخواست runtime permission برای `READ_SMS` و `RECEIVE_SMS`.
 - خواندن پیامک‌های Inbox از `Telephony.Sms.Inbox`.
-- نمایش و مدیریت سقف خواندن پیامک‌ها؛ مقدار پیش‌فرض ۱۰۰۰ پیام و بازه قابل تنظیم ۲۰ تا ۵۰۰۰ پیام.
+- نمایش و مدیریت سقف خواندن پیامک‌ها؛ مقدار پیش‌فرض ۱۰۰۰ پیام و بازه قابل تنظیم ۲۰۰ تا ۵۰۰۰ پیام.
 - UI فارسی و RTL با هدر مدرن و Drawer سمت راست.
 - انتخاب تم روشن یا تاریک از داخل تنظیمات برنامه با ذخیره ماندگار انتخاب کاربر؛ تم پیش‌فرض روشن است و انتخاب تم روی تمام صفحات برنامه اعمال می‌شود.
 - زبان بصری یکپارچه با سطوح تونال، فاصله‌گذاری بازتر و بازخورد لمسی نرم برای تعاملات اصلی.
@@ -209,19 +207,42 @@ MainActivity
 │   │   ├── SmsReceiver.kt
 │   │   ├── AppThemeManager.kt
 │   │   ├── data/
+│   │   │   ├── ThemePreferenceRepository.kt
+│   │   │   ├── CategoryVisibilityRepository.kt
+│   │   │   ├── CategoryActivationRepository.kt
+│   │   │   ├── FilterRuleRepository.kt
+│   │   │   ├── SmsBlockRepository.kt
+│   │   │   ├── SmsNotificationSettingsRepository.kt
+│   │   │   └── SmsRepository.kt
 │   │   ├── model/
+│   │   │   ├── FilterRule.kt
+│   │   │   └── SmsMessage.kt
 │   │   ├── notification/
+│   │   │   └── SmsNotificationManager.kt
 │   │   └── util/
+│   │       ├── SmsClassifier.kt
+│   │       ├── SmsInboxFilter.kt
+│   │       ├── SmsBlockFilter.kt
+│   │       ├── SmsNotificationPolicy.kt
+│   │       └── SmsTextProcessor.kt
 │   └── src/test/java/com/mesterumailer/smsmanager/
+│       ├── data/
+│       │   └── AppThemeTest.kt
+│       └── util/
+│           ├── SmsClassifierTest.kt
+│           ├── SmsInboxFilterTest.kt
+│           ├── SmsBlockFilterTest.kt
+│           ├── SmsNotificationPolicyTest.kt
+│           └── SmsTextProcessorTest.kt
 ├── .github/workflows/android.yml
 ├── .github/workflows/android-release.yml
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── gradle.properties
-├── README.md
-├── PROJECT_HANDOFF.md
-├── REGRESSION_BASELINE.md
-└── PRODUCT_FEEDBACK.md
+└── README.md
+
+راهنمای کامل continuation:
+PROJECT_HANDOFF.md
 ```
 
 ## نیازمندی‌ها
@@ -249,6 +270,25 @@ MainActivity
 
 این مرحله «تست دستگاه واقعی» است و نتیجهٔ آن باید جدا از Unit Test و Build CI ثبت شود.
 
+## اجرای پروژه
+
+۱. repository را clone کنید.
+
+۲. پروژه را در Android Studio باز کنید و Gradle sync را انجام دهید.
+
+۳. برنامه را روی دستگاه Android اجرا کنید.
+
+۴. مجوزهای SMS را تأیید کنید.
+   در Android 13+ برای فعال‌سازی اعلان‌ها، مجوز Notification نیز هنگام نیاز درخواست می‌شود.
+
+۵. در صفحه اصلی از جست‌وجوی Inbox و بخش **فیلتر نمایش** استفاده کنید.
+
+۶. از منوی همبرگری وارد **تنظیمات دسته‌بندی** شوید.
+
+۷. فیلترهای دسته‌ها یا تنظیمات نمایش را تغییر دهید و ذخیره کنید.
+
+۸. به Inbox برگردید؛ پیام‌ها با Ruleهای جدید دوباره تحلیل می‌شوند.
+
 ## تست خودکار با GitHub Actions
 
 Workflow پروژه در `.github/workflows/android.yml` قرار دارد و برای push روی `main` و branchهای `feature/**` و همچنین Pull Request اجرا می‌شود.
@@ -263,11 +303,19 @@ Workflow این موارد را بررسی می‌کند:
 - تولید APK
 - upload کردن APK به‌عنوان artifact
 
+## Known Issues
+
+### صدای Notification
+
+در تست عملی گزارش شده که با وجود انتخاب صدای اعلان برای یک دسته، هنگام دریافت SMS و نمایش Notification صدایی پخش نشده است.
+
+این مورد هنوز Root Cause قطعی ندارد و در [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) ثبت شده است. قبل از هر تغییر معماری Notification باید رفتار واقعی Notification Channel و تنظیمات دستگاه بررسی و سپس با تست دستگاه تأیید شود.
+
 ## اعلان‌ها
 
 دریافت زنده پیامک با `SMS_RECEIVED_ACTION` برای برنامه‌های غیر Default SMS نیز در Android قابل استفاده است و برای آن `RECEIVE_SMS` لازم است. اعلان‌ها روی Notification Channelهای جداگانه برای هر دسته قرار می‌گیرند و Android 13+ به مجوز `POST_NOTIFICATIONS` نیاز دارد.
 
-انتخاب صدا با Ringtone Picker سیستم انجام می‌شود؛ فایل صوتی جدیدی داخل APK قرار نمی‌گیرد. صدای Channel پیش از ثبت آن تعیین می‌شود، بنابراین تغییر صدا از داخل برنامه با بازسازی Channel همان دسته اعمال می‌شود.
+انتخاب صدا با Ringtone Picker سیستم انجام می‌شود؛ فایل صوتی جدیدی داخل APK قرار نمی‌گیرد. صدای Channel پیش از ثبت آن تعیین می‌شود، بنابراین تغییر صدا از داخل برنامه با بازسازی Channel همان دسته انجام می‌شود.
 
 ## محدودیت‌های فعلی اعلان
 
@@ -275,7 +323,6 @@ Workflow این موارد را بررسی می‌کند:
 - تنظیمات اعلان هر دسته مستقل از فعال/غیرفعال بودن خود دسته در Inbox است؛ مسیر دریافت زنده برای تعیین مقصد اعلان، Ruleهای موجود را مستقل از فیلتر نمایش دسته‌ها ارزیابی می‌کند.
 - برای Android O به بالا، صدای اعلان توسط Notification Channel مدیریت می‌شود؛ تغییر صدا با بازسازی Channel همان دسته اعمال می‌شود.
 - برنامه فایل صوتی اختصاصی داخل APK ندارد و از صداهای موجود سیستم استفاده می‌کند.
-- **Known Issue:** در تست عملی، انتخاب sound برای category ثبت شده اما صدای Notification پخش نشده است. این مورد در [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) ثبت شده و تا تست دستگاه/بررسی Channel نباید بسته تلقی شود.
 
 ## امنیت و حریم خصوصی
 
@@ -295,22 +342,97 @@ Workflow این موارد را بررسی می‌کند:
 - ML/LLM classification
 - workflowهای پیچیده کاربر
 
+## مسیر توسعه بعدی
+
+### Phase 1.1 — Inbox حرفه‌ای‌تر
+
+#### UI polish — نسخه 0.5.0
+- [x] یکپارچه‌سازی تعاملات لمسی (ripple) در Inbox و صفحات تنظیمات.
+- [x] پالایش پالت روشن و تاریک برای سطوح و خوانایی بهتر.
+- [x] بهبود سلسله‌مراتب هدر صفحه اصلی و فاصله‌گذاری کارت‌های پیام.
+- [x] کنترل فعال/غیرفعال بودن هر دسته از صفحه مدیریت دسته‌بندی‌ها.
+- [x] شمارش دسته‌های فعال در صفحه مدیریت دسته‌بندی‌ها.
+- [x] فیلتر مسدودسازی شماره/فرستنده و محتوای پیام قبل از Classification.
+
+- [x] دسته‌بندی دستی هر پیام
+- [x] ذخیره ماندگار Override دسته‌بندی
+- [x] بازگشت هر پیام به تشخیص خودکار
+- [ ] مرتب‌سازی پیشرفته
+- [ ] فقط پیام‌های مهم
+- [ ] نمایش confidence
+- [ ] ویرایش Rule مستقیماً از کارت پیام
+- [ ] تست Rule با یک پیام نمونه قبل از ذخیره
+
+### Phase 1.2 — دریافت پیام جدید و اعلان
+
+- [x] `RECEIVE_SMS` و ثبت مجوز آن
+- [x] `BroadcastReceiver` برای `SMS_RECEIVED`
+- [x] پردازش پیام جدید با همان Block Filter و Classification
+- [x] اعلان مستقل برای هر دسته
+- [x] فعال/غیرفعال کردن اعلان هر دسته به‌صورت مستقل
+- [x] انتخاب صدای Notification از صداهای موجود گوشی
+- [x] پیش‌فرض هر دسته بدون صدا
+- [x] بدون ویبره
+- [x] ولوم تابع تنظیمات Notification خود Android
+- [x] درخواست `POST_NOTIFICATIONS` در زمان نیاز
+- [x] جلوگیری از duplicate notification برای دریافت تکراری همان SMS
+- [x] لمس اعلان و باز کردن پیام در برنامه
+
+### Phase 1.3 — persistence
+
+- Room در صورت نیاز
+- نگهداری تحلیل‌ها
+- history و statistics
+
+### Phase 2 — تحلیل هوشمند
+
+- استخراج entityهای بیشتر
+- تشخیص دقیق فرستنده/سرویس
+- تشخیص نوع تراکنش
+- scoring پیشرفته
+- امکان اتصال classifier هوشمند
+
 ## وضعیت توسعه
 
-این پروژه اکنون در **Improvement Phase** است.
+- [x] ایجاد پروژه Android
+- [x] خواندن Inbox
+- [x] نمایش پیامک‌ها
+- [x] منوی همبرگری
+- [x] صفحه Settings
+- [x] Ruleهای قابل تنظیم
+- [x] ذخیره محلی Ruleها
+- [x] فیلتر نمایش دسته‌ها
+- [x] جست‌وجوی زنده در متن و فرستنده
+- [x] انتخاب و کپی پیام‌ها
+- [x] threshold و exclusion برای Ruleها
+- [x] تست واحد matching
+- [x] تست واحد search/filter
+- [x] GitHub Actions برای build و test
+- [x] تم روشن و تاریک با انتخاب از تنظیمات برنامه
+- [x] تنظیم سقف خواندن Inbox با محدوده زمانی
+- [x] ذخیره واقعی Override دسته‌بندی پیام
+- [x] دریافت زنده SMS
+- [x] تنظیمات اعلان و صدای هر دسته
+- [x] جلوگیری از duplicate notification
+- [ ] persistence
+- [ ] تحلیل پیشرفته
 
-اولویت فعلی:
-1. رفع بازخوردها و Bugهای مشاهده‌شده در استفاده واقعی.
-2. حفظ کامل قابلیت‌های فعلی از طریق Regression Test.
-3. بهبود UX و Performance بدون پیچیده‌کردن غیرضروری پروژه.
-4. افزایش دقت Classification با اتکا به نمونه‌های واقعی.
-5. سپس اضافه‌کردن قابلیت‌هایی که ارزش واقعی آن‌ها تأیید شده است.
+## تنظیمات Inbox
 
-برای جزئیات continuation، baseline و feedback log به این فایل‌ها مراجعه کنید:
+در تنظیمات برنامه، کاربر می‌تواند سقف خواندن Inbox را بین ۲۰۰ تا ۵۰۰۰ پیامک تعیین کند. محدوده زمانی نیز در دو حالت قابل انتخاب است: **تا امروز** برای خواندن جدیدترین پیام‌ها، یا **تا تاریخ مشخص** برای محدود کردن خواندن به پیام‌هایی که تا پایان تاریخ انتخاب‌شده ثبت شده‌اند.
 
-- [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)
-- [REGRESSION_BASELINE.md](REGRESSION_BASELINE.md)
-- [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md)
+## تم برنامه
+
+تم برنامه از داخل Settings در بخش «نمای برنامه» بین دو حالت **روشن** و **تاریک** قابل انتخاب است. انتخاب کاربر به‌صورت محلی ذخیره می‌شود و پس از بازشدن دوباره برنامه حفظ خواهد شد.
+
+برای جلوگیری از افت خوانایی، پس‌زمینه صفحه، کارت‌ها، متن اصلی و ثانویه، دکمه‌ها، فیلترها، دسته‌بندی‌ها، هایلایت انتخاب متن، نوار پردازش و نوارهای سیستم برای هر تم پالت جداگانه دارند.
+
+
+## اسناد ادامه پروژه
+
+- [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) — مرجع کامل برای Agent جدید و ادامه توسعه.
+- [REGRESSION_BASELINE.md](REGRESSION_BASELINE.md) — رفتارهایی که نباید در بهبودها خراب شوند.
+- [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) — دفتر Bugها، بازخوردهای استفاده واقعی و وضعیت بررسی آن‌ها.
 
 ## Git workflow
 
@@ -322,4 +444,4 @@ Branch فعلی:
 feature/phase-1-sms-inbox
 ```
 
-Branch فعلی با `main` diverged است؛ قبل از merge باید وضعیت دو branch و commitهای مستقل از `main` بررسی و reconcile شوند.
+برای وضعیت دقیق branch/PR، Known Issueها و دستورالعمل ادامه توسعه به [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) مراجعه کنید.
