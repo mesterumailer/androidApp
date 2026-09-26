@@ -15,6 +15,8 @@
 **Type:** Bug  
 **Status:** Investigating
 
+**GitHub Issue:** [#4](https://github.com/mesterumailer/androidApp/issues/4)
+
 ### مشاهده
 
 در تست عملی، برای یک category صدای اعلان انتخاب شده بود، اما هنگام دریافت SMS جدید و نمایش Notification هیچ صدایی پخش نشد.
