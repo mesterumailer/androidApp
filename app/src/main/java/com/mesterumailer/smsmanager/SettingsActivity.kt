@@ -71,7 +71,7 @@ class SettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@SettingsActivity).apply {
-                text = "فعال‌سازی، غیرفعال‌سازی و ویرایش دسته‌ها"
+                text = "راهنمای دسته‌بندی، قوانین تشخیص و دسته‌های سفارشی"
                 textSize = 12f
                 setTextColor(secondary)
                 setPadding(0, dp(3), 0, 0)
@@ -99,7 +99,7 @@ class SettingsActivity : BaseActivity() {
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
             addView(TextView(this@SettingsActivity).apply {
-                text = "برای هر دسته مشخص کنید در Inbox فعال باشد یا موقتاً از نمایش پیام‌ها خارج شود. غیرفعال‌کردن دسته، پیامک اصلی را حذف یا تغییر نمی‌دهد."
+                text = "راهنمای کوتاه: فعال بودن دسته تعیین می‌کند پیام‌های آن برای مدیریت و نمایش در Inbox در دسترس باشند. غیرفعال‌کردن دسته فقط روی برنامه اثر دارد و SMS اصلی گوشی حذف یا تغییر نمی‌شود."
                 textSize = 13f
                 setTextColor(secondary)
                 setPadding(0, dp(6), 0, 0)
@@ -124,7 +124,15 @@ class SettingsActivity : BaseActivity() {
             }
             addView(countView)
         }
-        body.addView(sectionHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        body.addView(sectionHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+
+        body.addView(TextView(this).apply {
+            text = "برای ساخت دسته جدید، نام دسته و کلمات مرتبط را تعریف کنید. هر قانون می‌تواند بر اساس فرستنده، کلمات الزامی/تشخیصی و کلمات ممنوع پیام‌ها را شناسایی کند."
+            textSize = 12f
+            setTextColor(secondary)
+            setLineSpacing(0f, 1.12f)
+            setPadding(dp(4), 0, dp(4), dp(10))
+        })
 
         categoryList = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -382,12 +390,14 @@ class SettingsActivity : BaseActivity() {
             setPadding(dp(4), dp(2), dp(4), dp(4))
             addView(sectionTitle("اطلاعات دسته"))
             addView(name)
-            addView(sectionTitle("قواعد تطبیق"))
+            addView(sectionTitle("قواعد تطبیق — پیام چگونه شناخته شود؟"))
+
             addView(sender.first); addView(sender.second)
             addView(required.first); addView(required.second)
             addView(any.first); addView(any.second)
             addView(excluded.first); addView(excluded.second)
-            addView(sectionTitle("رفتار اولویت‌بندی"))
+            addView(sectionTitle("رفتار اولویت‌بندی — وقتی چند قانون هم‌زمان منطبق شوند"))
+
             addView(minimum.first); addView(minimum.second)
             addView(priority.first); addView(priority.second)
         }
