@@ -14,6 +14,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.format.DateFormat
@@ -198,9 +200,26 @@ class MainActivity : BaseActivity() {
         val query = searchInput.text?.toString().orEmpty()
 
         processingExecutor.execute {
+            val renderStartedAt = SystemClock.elapsedRealtime()
+            val filterStartedAt = renderStartedAt
             val filtered = SmsInboxFilter.filter(source, visibleIds, query)
+            val filterElapsedMs = SystemClock.elapsedRealtime() - filterStartedAt
+
+            val sortStartedAt = SystemClock.elapsedRealtime()
             val ordered = sortForDisplay(filtered)
+            val sortElapsedMs = SystemClock.elapsedRealtime() - sortStartedAt
+
+            val linkifyStartedAt = SystemClock.elapsedRealtime()
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
+            val linkifyElapsedMs = SystemClock.elapsedRealtime() - linkifyStartedAt
+            val backgroundElapsedMs = SystemClock.elapsedRealtime() - renderStartedAt
+
+            Log.d(
+                "SmsPerformance",
+                "requestRender source=${source.size} visible=${ordered.size} queryLength=${query.length} " +
+                    "filterMs=$filterElapsedMs sortMs=$sortElapsedMs linkifyMs=$linkifyElapsedMs backgroundMs=$backgroundElapsedMs"
+            )
+
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
                 renderFilteredMessages(ordered, source.size, query, token, linkifiedBodies)
@@ -215,6 +234,7 @@ class MainActivity : BaseActivity() {
         token: Long,
         linkifiedBodies: Map<Long, CharSequence> = emptyMap()
     ) {
+        val renderStartedAt = SystemClock.elapsedRealtime()
         listContainer.removeAllViews()
         statusView.text = if (query.isBlank()) {
             visibleMessages.size.toString() + " پیامک"
@@ -242,7 +262,17 @@ class MainActivity : BaseActivity() {
             }
             index = end
             updateSelectionBar(visibleMessages)
-            if (index < visibleMessages.size) listContainer.post { appendChunk() } else endProcessing()
+            if (index < visibleMessages.size) {
+                listContainer.post { appendChunk() }
+            } else {
+                val renderElapsedMs = SystemClock.elapsedRealtime() - renderStartedAt
+                Log.d(
+                    "SmsPerformance",
+                    "renderMessages visible=${visibleMessages.size} chunks=${((visibleMessages.size + 23) / 24)} " +
+                        "elapsedMs=$renderElapsedMs"
+                )
+                endProcessing()
+            }
         }
         appendChunk()
     }
@@ -588,8 +618,13 @@ class MainActivity : BaseActivity() {
         val token = processingToken
         processingExecutor.execute {
             try {
+                val loadStartedAt = SystemClock.elapsedRealtime()
+                val rulesStartedAt = loadStartedAt
                 val rules = FilterRuleRepository(this).loadRules()
+                val rulesElapsedMs = SystemClock.elapsedRealtime() - rulesStartedAt
+                val settingsStartedAt = SystemClock.elapsedRealtime()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
+                val settingsElapsedMs = SystemClock.elapsedRealtime() - settingsStartedAt
                 val untilTimestampExclusive = if (readSettings.mode == InboxReadMode.UNTIL_DATE) {
                     readSettings.untilDateStartMillis?.let(::startOfNextDay)
                 } else {
@@ -604,12 +639,25 @@ class MainActivity : BaseActivity() {
                     blockedSenders = blockSettings.blockedSenders,
                     blockedContent = blockSettings.blockedContent
                 )
-                val messages = applyMessageOverrides(
-                    SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
-                        limit = readSettings.limit,
-                        untilTimestampExclusive = untilTimestampExclusive
-                    )
+                val repositoryStartedAt = SystemClock.elapsedRealtime()
+                val loadedMessages = SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
+                    limit = readSettings.limit,
+                    untilTimestampExclusive = untilTimestampExclusive
                 )
+                val repositoryElapsedMs = SystemClock.elapsedRealtime() - repositoryStartedAt
+
+                val overridesStartedAt = SystemClock.elapsedRealtime()
+                val messages = applyMessageOverrides(loadedMessages)
+                val overridesElapsedMs = SystemClock.elapsedRealtime() - overridesStartedAt
+
+                val loadElapsedMs = SystemClock.elapsedRealtime() - loadStartedAt
+                Log.d(
+                    "SmsPerformance",
+                    "loadInbox limit=${readSettings.limit} rules=${rules.size} activeRules=${classificationRules.size} " +
+                        "returned=${messages.size} rulesMs=$rulesElapsedMs settingsMs=$settingsElapsedMs " +
+                        "repositoryMs=$repositoryElapsedMs overridesMs=$overridesElapsedMs totalMs=$loadElapsedMs"
+                )
+
                 runOnUiThread {
                     if (token != processingToken || isFinishing) return@runOnUiThread
                     currentRules = rules
@@ -684,7 +732,8 @@ class MainActivity : BaseActivity() {
 
     private fun applyMessageOverrides(messages: List<SmsMessage>): List<SmsMessage> {
         val overrides = MessageOverrideRepository(this)
-        return messages.map { message ->
+        val startedAt = SystemClock.elapsedRealtime()
+        val result = messages.map { message ->
             val overrideId = overrides.getCategoryId(message.id)
             if (overrideId.isNullOrBlank()) {
                 message
@@ -697,6 +746,12 @@ class MainActivity : BaseActivity() {
                 )
             }
         }
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        Log.d(
+            "SmsPerformance",
+            "applyMessageOverrides count=${messages.size} elapsedMs=$elapsedMs"
+        )
+        return result
     }
 
     private fun renderMessages(messages: List<SmsMessage>) {
