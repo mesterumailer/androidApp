@@ -49,7 +49,6 @@ import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsInboxFilter
-import com.mesterumailer.smsmanager.util.PerformanceLogger
 import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
 import java.util.Calendar
@@ -199,18 +198,9 @@ class MainActivity : BaseActivity() {
         val query = searchInput.text?.toString().orEmpty()
 
         processingExecutor.execute {
-            val filterStart = android.os.SystemClock.elapsedRealtimeNanos()
             val filtered = SmsInboxFilter.filter(source, visibleIds, query)
-            PerformanceLogger.logDuration("render_filter", filterStart)
-
-            val sortStart = android.os.SystemClock.elapsedRealtimeNanos()
             val ordered = sortForDisplay(filtered)
-            PerformanceLogger.logDuration("render_sort", sortStart)
-
-            val linkifyStart = android.os.SystemClock.elapsedRealtimeNanos()
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
-            PerformanceLogger.logDuration("render_linkify", linkifyStart)
-
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
                 renderFilteredMessages(ordered, source.size, query, token, linkifiedBodies)
@@ -225,9 +215,6 @@ class MainActivity : BaseActivity() {
         token: Long,
         linkifiedBodies: Map<Long, CharSequence> = emptyMap()
     ) {
-        val renderStart = android.os.SystemClock.elapsedRealtimeNanos()
-        var firstChunkLogged = false
-
         listContainer.removeAllViews()
         statusView.text = if (query.isBlank()) {
             visibleMessages.size.toString() + " پیامک"
@@ -249,27 +236,13 @@ class MainActivity : BaseActivity() {
         fun appendChunk() {
             if (token != processingToken || isFinishing) return
             val end = (index + 24).coerceAtMost(visibleMessages.size)
-            val chunkStart = android.os.SystemClock.elapsedRealtimeNanos()
             for (i in index until end) {
                 val message = visibleMessages[i]
                 listContainer.addView(createMessageView(message, linkifiedBodies[message.id] ?: message.body))
             }
-            PerformanceLogger.logDuration("render_chunk_$index-$end", chunkStart)
-
             index = end
             updateSelectionBar(visibleMessages)
-
-            if (!firstChunkLogged) {
-                firstChunkLogged = true
-                PerformanceLogger.logDuration("render_first_chunk", renderStart)
-            }
-
-            if (index < visibleMessages.size) {
-                listContainer.post { appendChunk() }
-            } else {
-                PerformanceLogger.logDuration("render_all_chunks", renderStart)
-                endProcessing()
-            }
+            if (index < visibleMessages.size) listContainer.post { appendChunk() } else endProcessing()
         }
         appendChunk()
     }
@@ -615,7 +588,6 @@ class MainActivity : BaseActivity() {
         val token = processingToken
         processingExecutor.execute {
             try {
-                val loadStart = android.os.SystemClock.elapsedRealtimeNanos()
                 val rules = FilterRuleRepository(this).loadRules()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
                 val untilTimestampExclusive = if (readSettings.mode == InboxReadMode.UNTIL_DATE) {
@@ -632,18 +604,12 @@ class MainActivity : BaseActivity() {
                     blockedSenders = blockSettings.blockedSenders,
                     blockedContent = blockSettings.blockedContent
                 )
-                val messagesReadStart = android.os.SystemClock.elapsedRealtimeNanos()
-                val rawMessages = SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
-                    limit = readSettings.limit,
-                    untilTimestampExclusive = untilTimestampExclusive
+                val messages = applyMessageOverrides(
+                    SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
+                        limit = readSettings.limit,
+                        untilTimestampExclusive = untilTimestampExclusive
+                    )
                 )
-                PerformanceLogger.logDuration("load_inbox_repository", messagesReadStart)
-
-                val overridesStart = android.os.SystemClock.elapsedRealtimeNanos()
-                val messages = applyMessageOverrides(rawMessages)
-                PerformanceLogger.logDuration("load_inbox_overrides", overridesStart)
-                PerformanceLogger.logDuration("load_inbox_total_background", loadStart)
-
                 runOnUiThread {
                     if (token != processingToken || isFinishing) return@runOnUiThread
                     currentRules = rules
