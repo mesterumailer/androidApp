@@ -100,6 +100,10 @@ class PermissionSetupActivity : BaseActivity() {
         }
         content.addView(statusView)
 
+        content.addView(buildPrivacyTrustCard(), LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(14)
+        })
+
         content.addView(TextView(this).apply {
             text = "بعد از فعال شدن مجوز، برنامه به‌صورت خودکار وارد صندوق پیامک‌ها می‌شود."
             textSize = 12f
@@ -110,6 +114,34 @@ class PermissionSetupActivity : BaseActivity() {
 
         root.addView(content, ViewGroup.LayoutParams(-1, -2))
         return root
+    }
+
+    private fun buildPrivacyTrustCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        background = roundedBackground(getColor(R.color.accent_surface), 22)
+        elevation = dp(1).toFloat()
+
+        addView(TextView(this@PermissionSetupActivity).apply {
+            text = "حریم خصوصی و اعتماد"
+            textSize = 17f
+            setTextColor(primaryText)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        })
+        addView(TextView(this@PermissionSetupActivity).apply {
+            text = "این نسخه از برنامه مجوز INTERNET ندارد و برای کارکرد معمول خود به اینترنت وصل نمی‌شود. پیامک‌ها از Inbox خود گوشی خوانده می‌شوند و تنظیمات و قواعد برنامه نیز به‌صورت محلی روی دستگاه نگهداری می‌شوند."
+            textSize = 13f
+            setTextColor(secondaryText)
+            setLineSpacing(0f, 1.15f)
+            setPadding(0, dp(7), 0, dp(8))
+        })
+        addView(TextView(this@PermissionSetupActivity).apply {
+            text = "در این فاز هیچ حساب کاربری، همگام‌سازی ابری یا ارسال داده به سرور وجود ندارد."
+            textSize = 12f
+            setTextColor(primaryText)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        })
     }
 
     private fun buildStepCard(
