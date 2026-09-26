@@ -25,10 +25,10 @@
 
 وقتی Notification آن category فعال است و یک sound معتبر برای آن انتخاب شده، Notification باید با رفتار صوتی تعیین‌شده توسط Android برای channel مربوطه ارائه شود؛ مگر اینکه کاربر یا سیستم Android آن channel/notification را بی‌صدا کرده باشد.
 
-### اصلاح اعمال‌شده
+### اصلاح اول و دوم اعمال‌شده
 
 - Channel ID به نسخه جدید `sms_category_v2_<categoryId>` منتقل شد تا Channel قدیمی با رفتار silent/low به نسخه جدید منتقل نشود.
-- Importance همه Channelهای Notification به `IMPORTANCE_HIGH` تغییر کرد تا Heads-up/Pop-up به‌صورت پیش‌فرض ممکن باشد.
+- Importance همه Channelهای Notification روی `IMPORTANCE_HIGH` باقی ماند تا Heads-up/Pop-up امکان‌پذیر باشد.
 - Channel قدیمی با prefix `sms_category_` هنگام مهاجرت حذف می‌شود.
 - دریافت URI انتخاب‌شده از Ringtone Picker برای Android 13+ به overload جدید API منتقل شد.
 
@@ -83,3 +83,25 @@
 - تست لازم برای بستن مورد
 
 بازخوردهای «ایده» و «مشکل واقعی» باید از هم جدا بمانند.
+
+## 2026-09-26 — Notification sound issue after first fix
+
+**Type:** Bug / Regression during verification  
+**Status:** Fixed — pending device verification
+
+### مشاهده
+
+بعد از اصلاح اول، در تست جدید مشخص شد که برخی categoryها، از جمله «خدمات» و «سایر»، هنوز sound را به‌درستی دریافت/اعمال نمی‌کنند.
+
+### اصلاح دوم
+
+Channel ID اکنون بر اساس category و sound انتخاب‌شده ساخته می‌شود. Channelهای قبلی همان category قبل از ایجاد Channel هدف پاک می‌شوند و Notification دقیقاً با همان Channel هدف ارسال می‌شود.
+
+### Verification
+
+- [ ] دریافت SMS از category «خدمات» با sound انتخابی
+- [ ] دریافت SMS از category «سایر» با sound انتخابی
+- [ ] بررسی Android Settings → Notification Category → Sound
+- [ ] بررسی Heads-up/Pop-up
+- [ ] تغییر sound و تکرار تست
+- [ ] انتخاب «بدون صدا» و بررسی silent بودن
