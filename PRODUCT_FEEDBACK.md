@@ -13,7 +13,7 @@
 ## 2026-09-25 — Notification sound
 
 **Type:** Bug  
-**Status:** Investigating
+**Status:** Fixed — pending device verification
 
 **GitHub Issue:** [#4](https://github.com/mesterumailer/androidApp/issues/4)
 
@@ -24,6 +24,13 @@
 ### رفتار مورد انتظار
 
 وقتی Notification آن category فعال است و یک sound معتبر برای آن انتخاب شده، Notification باید با رفتار صوتی تعیین‌شده توسط Android برای channel مربوطه ارائه شود؛ مگر اینکه کاربر یا سیستم Android آن channel/notification را بی‌صدا کرده باشد.
+
+### اصلاح اعمال‌شده
+
+- Channel ID به نسخه جدید `sms_category_v2_<categoryId>` منتقل شد تا Channel قدیمی با رفتار silent/low به نسخه جدید منتقل نشود.
+- Importance همه Channelهای Notification به `IMPORTANCE_HIGH` تغییر کرد تا Heads-up/Pop-up به‌صورت پیش‌فرض ممکن باشد.
+- Channel قدیمی با prefix `sms_category_` هنگام مهاجرت حذف می‌شود.
+- دریافت URI انتخاب‌شده از Ringtone Picker برای Android 13+ به overload جدید API منتقل شد.
 
 ### وضعیت فنی فعلی
 
@@ -52,6 +59,15 @@
 تا وقتی شواهد بالا بررسی نشده، تغییر speculative در Notification architecture پذیرفته نیست.
 
 ---
+
+## 2026-09-26 — Notification presentation
+
+**Type:** Product requirement / UX feedback  
+**Status:** Implemented — pending device verification
+
+وقتی اعلان یک category فعال است، باید از نظر اهمیت در سطحی باشد که Android بتواند Notification را به شکل Heads-up / Pop-up / Floating نمایش دهد. برای Android O+ این رفتار از Channel importance می‌آید، بنابراین Channelهای این محصول برای اعلان‌های SMS با `IMPORTANCE_HIGH` ساخته می‌شوند.
+
+توجه: Android و تنظیمات خود کاربر می‌توانند نمایش Pop-up را محدود کنند؛ بنابراین «امکان نمایش Pop-up» با «اجبار Pop-up در همه دستگاه‌ها» یکسان نیست.
 
 ## قواعد ثبت بازخورد
 
