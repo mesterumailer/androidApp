@@ -33,10 +33,10 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.recyclerview.widget.RecyclerView
 import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
@@ -59,7 +59,9 @@ import java.util.concurrent.Executors
 class MainActivity : BaseActivity() {
     private val smsPermissionRequestCode = 1001
     private lateinit var drawerLayout: DrawerLayout
-    private lateinit var listContainer: LinearLayout
+    private lateinit var listContainer: FrameLayout
+    private lateinit var messageRecycler: RecyclerView
+    private lateinit var messageAdapter: MessageRecyclerAdapter
     private lateinit var statusView: TextView
     private lateinit var searchInput: EditText
     private lateinit var searchClear: TextView
@@ -118,16 +120,24 @@ class MainActivity : BaseActivity() {
             topMargin = dp(10)
             bottomMargin = dp(2)
         })
-        listContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        listContainer = FrameLayout(this).apply {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
-        main.addView(ScrollView(this).apply {
-            setFillViewport(true)
-            isVerticalScrollBarEnabled = false
+        messageAdapter = MessageRecyclerAdapter(this)
+        messageRecycler = RecyclerView(this).apply {
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
             overScrollMode = View.OVER_SCROLL_NEVER
-            addView(listContainer, ViewGroup.LayoutParams(-1, -2))
-        }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
+            isVerticalScrollBarEnabled = false
+            setHasFixedSize(false)
+            adapter = messageAdapter
+            setPadding(0, 0, 0, dp(4))
+            clipToPadding = false
+        }
+        listContainer.addView(
+            messageRecycler,
+            FrameLayout.LayoutParams(-1, -1)
+        )
+        main.addView(listContainer, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
         val contentFrame = FrameLayout(this).apply {
             addView(main, FrameLayout.LayoutParams(-1, -1))
             addView(buildProcessingOverlay(), FrameLayout.LayoutParams(-1, -1))
@@ -235,48 +245,40 @@ class MainActivity : BaseActivity() {
         linkifiedBodies: Map<Long, CharSequence> = emptyMap()
     ) {
         val renderStartedAt = SystemClock.elapsedRealtime()
-        listContainer.removeAllViews()
+        val visibleIds = visibleMessages.map { it.id }.toSet()
+        selectedIds.retainAll(visibleIds)
+
         statusView.text = if (query.isBlank()) {
             visibleMessages.size.toString() + " پیامک"
         } else {
             visibleMessages.size.toString() + " نتیجه از " + sourceCount + " پیامک"
         }
 
-        val visibleIds = visibleMessages.map { it.id }.toSet()
-        selectedIds.retainAll(visibleIds)
+        messageAdapter.submitList(visibleMessages, linkifiedBodies)
 
         if (visibleMessages.isEmpty()) {
-            listContainer.addView(buildEmptyState(query.isNotBlank()))
-            updateSelectionBar(visibleMessages)
-            endProcessing()
-            return
-        }
-
-        var index = 0
-        fun appendChunk() {
-            if (token != processingToken || isFinishing) return
-            val end = (index + 24).coerceAtMost(visibleMessages.size)
-            for (i in index until end) {
-                val message = visibleMessages[i]
-                listContainer.addView(createMessageView(message, linkifiedBodies[message.id] ?: message.body))
-            }
-            index = end
-            updateSelectionBar(visibleMessages)
-            if (index < visibleMessages.size) {
-                listContainer.post { appendChunk() }
-            } else {
-                val renderElapsedMs = SystemClock.elapsedRealtime() - renderStartedAt
-                Log.d(
-                    "SmsPerformance",
-                    "renderMessages visible=${visibleMessages.size} chunks=${((visibleMessages.size + 23) / 24)} " +
-                        "elapsedMs=$renderElapsedMs"
+            if (listContainer.findViewWithTag<View>("empty_state") == null) {
+                listContainer.addView(
+                    buildEmptyState(query.isNotBlank()).apply {
+                        tag = "empty_state"
+                        layoutParams = FrameLayout.LayoutParams(-1, -2).apply {
+                            gravity = Gravity.CENTER
+                        }
+                    }
                 )
-                endProcessing()
             }
+        } else {
+            listContainer.findViewWithTag<View>("empty_state")?.let(listContainer::removeView)
         }
-        appendChunk()
-    }
 
+        val elapsedMs = SystemClock.elapsedRealtime() - renderStartedAt
+        Log.d(
+            "SmsPerformance",
+            "renderSubmit visible=${visibleMessages.size} elapsedMs=$elapsedMs recycler=true"
+        )
+        updateSelectionBar(visibleMessages)
+        endProcessing()
+    }
 
     private fun buildToolbar(): View = FrameLayout(this).apply {
         background = roundedBackground(cardBackground, 22)
@@ -755,26 +757,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun renderMessages(messages: List<SmsMessage>) {
-        if (messages === currentMessages) {
-            requestRender()
-            return
-        }
-        beginProcessing()
-        val token = processingToken
-        val activeIds = activeCategoryDefinitions().map { it.first }
-        val visibleIds = CategoryVisibilityRepository(this)
-            .visibleCategoryIds(activeIds)
-            .intersect(CategoryActivationRepository(this).activeCategoryIds(activeIds))
-        val query = searchInput.text?.toString().orEmpty()
-        processingExecutor.execute {
-            val filtered = SmsInboxFilter.filter(messages, visibleIds, query)
-            val ordered = sortForDisplay(filtered)
-            val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
-            runOnUiThread {
-                if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(ordered, messages.size, query, token, linkifiedBodies)
-            }
-        }
+        requestRender()
     }
 
     private fun buildEmptyState(hasSearch: Boolean): View = LinearLayout(this).apply {
@@ -1062,6 +1045,48 @@ class MainActivity : BaseActivity() {
             content,
             mask
         )
+    }
+
+    private class MessageRecyclerAdapter(
+        private val activity: MainActivity
+    ) : RecyclerView.Adapter<MessageRecyclerAdapter.MessageViewHolder>() {
+
+        private var items: List<SmsMessage> = emptyList()
+        private var preparedBodies: Map<Long, CharSequence> = emptyMap()
+
+        fun submitList(newItems: List<SmsMessage>, newPreparedBodies: Map<Long, CharSequence>) {
+            items = newItems
+            preparedBodies = newPreparedBodies
+            notifyDataSetChanged()
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
+            val container = FrameLayout(activity).apply {
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+            }
+            return MessageViewHolder(container)
+        }
+
+        override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
+            val message = items[position]
+            holder.container.removeAllViews()
+            holder.container.addView(
+                activity.createMessageView(
+                    message,
+                    preparedBodies[message.id] ?: message.body
+                ).apply {
+                    layoutParams = FrameLayout.LayoutParams(-1, -2).apply {
+                        bottomMargin = activity.dp(12)
+                    }
+                }
+            )
+        }
+
+        override fun getItemCount(): Int = items.size
+
+        class MessageViewHolder(
+            val container: FrameLayout
+        ) : RecyclerView.ViewHolder(container)
     }
 
     override fun onDestroy() {
