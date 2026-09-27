@@ -64,7 +64,7 @@
 - برای Android 13+ مجوز `POST_NOTIFICATIONS` نیز در Manifest وجود دارد.
 - Inbox از `Telephony.Sms.Inbox` خوانده می‌شود.
 - سقف خواندن Inbox قابل تنظیم است.
-- مقدار پیش‌فرض سقف Inbox: **1000 پیام**
+- مقدار پیش‌فرض سقف Inbox: **500 پیام**
 - حداقل: **200**
 - حداکثر: **5000**
 - دو حالت محدوده خواندن:
@@ -527,7 +527,7 @@ inbox_sort_order
 ثابت‌های فعلی:
 
 ```text
-DEFAULT_LIMIT = 1000
+DEFAULT_LIMIT = 500
 MIN_LIMIT     = 200
 MAX_LIMIT     = 5000
 ```
@@ -1037,7 +1037,7 @@ SmsInboxFilter.kt
 - branch توسعه فعلی `feature/phase-1-sms-inbox` است.
 - branch با `main` diverged است؛ merge نباید بدون reconcile انجام شود.
 - نسخه فعلی کد `0.7.0` است.
-- سقف پیش‌فرض بررسی Inbox برابر 1000 پیام است.
+- سقف پیش‌فرض بررسی Inbox برابر 500 پیام است.
 - UI فارسی/RTL است.
 - پروژه باید تا حد ممکن سبک و ساده باقی بماند.
 
