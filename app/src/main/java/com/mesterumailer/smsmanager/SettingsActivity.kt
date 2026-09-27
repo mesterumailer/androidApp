@@ -70,12 +70,6 @@ class SettingsActivity : BaseActivity() {
                 setTextColor(primary)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
-            addView(TextView(this@SettingsActivity).apply {
-                text = "راهنمای دسته‌بندی، قوانین تشخیص و دسته‌های سفارشی"
-                textSize = 12f
-                setTextColor(secondary)
-                setPadding(0, dp(3), 0, 0)
-            })
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(toolbar)
         val scroll = ScrollView(this).apply {
@@ -87,25 +81,6 @@ class SettingsActivity : BaseActivity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(16), dp(6), dp(16), dp(24))
         }
-
-        val introCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(18))
-            background = roundedBackground(getColor(R.color.accent_surface), 22)
-            addView(TextView(this@SettingsActivity).apply {
-                text = "قوانین تشخیص"
-                textSize = 17f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@SettingsActivity).apply {
-                text = "راهنمای کوتاه: فعال بودن دسته تعیین می‌کند پیام‌های آن برای مدیریت و نمایش در Inbox در دسترس باشند. غیرفعال‌کردن دسته فقط روی برنامه اثر دارد و SMS اصلی گوشی حذف یا تغییر نمی‌شود."
-                textSize = 13f
-                setTextColor(secondary)
-                setPadding(0, dp(6), 0, 0)
-            })
-        }
-        body.addView(introCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
 
         val sectionHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -123,16 +98,12 @@ class SettingsActivity : BaseActivity() {
                 setTextColor(secondary)
             }
             addView(countView)
+            addView(buildHelpButton(
+                "دسته‌بندی‌ها",
+                "هر دسته یک گروه برای شناسایی و نمایش پیام‌هاست. کلید کنار دسته، فعال بودن آن را در برنامه کنترل می‌کند؛ دسته غیرفعال در Inbox نمایش داده نمی‌شود. با «ویرایش» می‌توانید نام و قانون تشخیص را تغییر دهید و با «ساخت دسته جدید» دسته سفارشی بسازید. این تنظیمات پیامک اصلی گوشی را حذف یا تغییر نمی‌دهند."
+            ), LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginStart = dp(4) })
         }
-        body.addView(sectionHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
-
-        body.addView(TextView(this).apply {
-            text = "برای ساخت دسته جدید، نام دسته و کلمات مرتبط را تعریف کنید. هر قانون می‌تواند بر اساس فرستنده، کلمات الزامی/تشخیصی و کلمات ممنوع پیام‌ها را شناسایی کند."
-            textSize = 12f
-            setTextColor(secondary)
-            setLineSpacing(0f, 1.12f)
-            setPadding(dp(4), 0, dp(4), dp(10))
-        })
+        body.addView(sectionHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
 
         categoryList = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -154,12 +125,22 @@ class SettingsActivity : BaseActivity() {
             bottomMargin = dp(10)
         })
 
-        body.addView(TextView(this).apply {
-            text = "مدیریت پیشرفته"
-            textSize = 13f
-            setTextColor(secondary)
-            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            setPadding(dp(4), dp(14), dp(4), dp(8))
+        body.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            addView(TextView(this@SettingsActivity).apply {
+                text = "مدیریت پیشرفته"
+                textSize = 13f
+                setTextColor(secondary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                setPadding(dp(4), dp(14), dp(4), dp(8))
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+            addView(buildHelpButton(
+                "مدیریت پیشرفته",
+                "گزینهٔ «بازگردانی دسته‌های اولیه» همهٔ دسته‌های سفارشی و تغییرات قوانین دسته‌بندی را پاک می‌کند و دسته‌ها و وضعیت فعال‌بودن پیش‌فرض را برمی‌گرداند. این کار پیامک‌های ذخیره‌شده در گوشی را حذف نمی‌کند."
+            ), LinearLayout.LayoutParams(dp(32), dp(32)))
         })
 
         body.addView(TextView(this).apply {
@@ -388,15 +369,24 @@ class SettingsActivity : BaseActivity() {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(4), dp(2), dp(4), dp(4))
-            addView(sectionTitle("اطلاعات دسته"))
+            addView(sectionTitle(
+                "اطلاعات دسته",
+                "نام دسته در فهرست دسته‌بندی‌ها و کنار پیام‌های شناسایی‌شده نمایش داده می‌شود. برای تشخیص دقیق‌تر، نامی انتخاب کنید که کاربرد این گروه از پیام‌ها را روشن کند."
+            ))
             addView(name)
-            addView(sectionTitle("قواعد تطبیق — پیام چگونه شناخته شود؟"))
+            addView(sectionTitle(
+                "قواعد تطبیق",
+                "هر مورد را در خط جداگانه بنویسید. «فرستنده شامل» بخشی از نام یا نشانی فرستنده را بررسی می‌کند. همهٔ «کلمات الزامی» باید در متن پیام باشند. اگر «کلمات تشخیصی» تعریف شود، تعداد موارد پیدا‌شده باید به حداقل تطابق برسد. وجود هر یک از «کلمات ممنوع» قانون را رد می‌کند. خالی گذاشتن یک فهرست یعنی آن شرط استفاده نمی‌شود."
+            ))
 
             addView(sender.first); addView(sender.second)
             addView(required.first); addView(required.second)
             addView(any.first); addView(any.second)
             addView(excluded.first); addView(excluded.second)
-            addView(sectionTitle("رفتار اولویت‌بندی — وقتی چند قانون هم‌زمان منطبق شوند"))
+            addView(sectionTitle(
+                "اولویت‌بندی",
+                "وقتی چند قانون با یک پیام تطبیق داشته باشند، امتیاز تطبیق ملاک انتخاب است. مقدار اولویت در امتیاز اثر می‌گذارد و در حالت برابر بودن امتیاز، قانون دارای اولویت بالاتر انتخاب می‌شود."
+            ))
 
             addView(minimum.first); addView(minimum.second)
             addView(priority.first); addView(priority.second)
@@ -463,7 +453,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun multiEditor(title: String, values: List<String>): Pair<TextView, EditText> {
-        return label("$title (هر مورد در یک خط)") to EditText(this).apply {
+        return label(title) to EditText(this).apply {
             setText(values.joinToString("\n"))
             minLines = 2
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -477,13 +467,40 @@ class SettingsActivity : BaseActivity() {
         }
     }
 
-    private fun sectionTitle(text: String): TextView = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(primary)
-        setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-        setPadding(0, dp(12), 0, dp(6))
-    }
+    private fun sectionTitle(text: String, helpMessage: String): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(0, dp(12), 0, dp(6))
+            addView(TextView(this@SettingsActivity).apply {
+                this.text = text
+                textSize = 13f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+            addView(buildHelpButton(text, helpMessage), LinearLayout.LayoutParams(dp(30), dp(30)))
+        }
+
+    private fun buildHelpButton(title: String, message: String): TextView =
+        TextView(this).apply {
+            text = "?"
+            textSize = 17f
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+            contentDescription = "راهنمای $title"
+            isFocusable = true
+            setOnClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("راهنمای $title")
+                    .setMessage(message)
+                    .setPositiveButton("متوجه شدم", null)
+                    .show()
+            }
+        }
 
     private fun label(text: String): TextView = TextView(this).apply {
         this.text = text
