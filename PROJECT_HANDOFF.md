@@ -22,8 +22,8 @@
 - Android Gradle Plugin: 8.7.3
 - Kotlin plugin: 2.0.21
 - Gradle مورد استفاده در CI: 8.9
-- نسخه فعلی اپ در کد: `0.7.0`
-- versionCode فعلی: `12`
+- نسخه فعلی اپ در کد: `0.8.0`
+- versionCode فعلی: `13`
 
 ---
 
@@ -1038,7 +1038,7 @@ SmsInboxFilter.kt
 - کاربر در تست واقعی وجود sound bug را گزارش کرده است.
 - branch توسعه فعلی `feature/phase-1-sms-inbox` است.
 - branch با `main` diverged است؛ merge نباید بدون reconcile انجام شود.
-- نسخه فعلی کد `0.7.0` است.
+- نسخه فعلی کد `0.8.0` و versionCode برابر `13` است.
 - سقف پیش‌فرض بررسی Inbox برابر 500 پیام است.
 - UI فارسی/RTL است.
 - پروژه باید تا حد ممکن سبک و ساده باقی بماند.
