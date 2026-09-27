@@ -59,6 +59,7 @@ class AppSettingsActivity : BaseActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(0, 0, 0, dp(8))
             addView(TextView(this@AppSettingsActivity).apply {
                 text = title
                 textSize = 18f
@@ -392,14 +393,6 @@ class AppSettingsActivity : BaseActivity() {
                 setTextColor(if (permissionGranted) accent else secondary)
                 setPadding(0, 0, 0, dp(4))
             })
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "نکته: روشن بودن اعلان یک دسته از فعال بودن همان دسته برای نمایش در Inbox مستقل است."
-                textSize = 11f
-                setTextColor(secondary)
-                setLineSpacing(0f, 1.1f)
-                setPadding(0, 0, 0, dp(10))
-            })
-
             definitions.forEachIndexed { index, (id, label) ->
                 addView(buildNotificationCategoryRow(id, label, index))
             }
