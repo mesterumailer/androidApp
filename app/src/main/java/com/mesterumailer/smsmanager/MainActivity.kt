@@ -48,6 +48,7 @@ import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
+import com.mesterumailer.smsmanager.util.SmsBlockFilter
 import com.mesterumailer.smsmanager.util.SmsInboxFilter
 import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
@@ -196,14 +197,17 @@ class MainActivity : BaseActivity() {
             .visibleCategoryIds(activeIds)
             .intersect(CategoryActivationRepository(this).activeCategoryIds(activeIds))
         val query = searchInput.text?.toString().orEmpty()
+        val blockSettings = SmsBlockRepository(this).getSettings()
+        val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
 
         processingExecutor.execute {
-            val filtered = SmsInboxFilter.filter(source, visibleIds, query)
+            val unblocked = source.filterNot { blockFilter.isBlocked(it.address, it.body) }
+            val filtered = SmsInboxFilter.filter(unblocked, visibleIds, query)
             val ordered = sortForDisplay(filtered)
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(ordered, source.size, query, token, linkifiedBodies)
+                renderFilteredMessages(ordered, unblocked.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -712,7 +716,10 @@ class MainActivity : BaseActivity() {
             .visibleCategoryIds(ids)
             .intersect(CategoryActivationRepository(this).activeCategoryIds(ids))
         val query = searchInput.text?.toString().orEmpty()
-        return SmsInboxFilter.filter(currentMessages, visibleIds, query)
+        val blockSettings = SmsBlockRepository(this).getSettings()
+        val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
+        val unblocked = currentMessages.filterNot { blockFilter.isBlocked(it.address, it.body) }
+        return SmsInboxFilter.filter(unblocked, visibleIds, query)
     }
 
     private fun applyMessageOverrides(messages: List<SmsMessage>): List<SmsMessage> {
@@ -873,6 +880,16 @@ class MainActivity : BaseActivity() {
                     background = roundedRippleBackground(getColor(R.color.icon_surface), 12)
                     setOnClickListener { copyText(message.body) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+                addView(TextView(this@MainActivity).apply {
+                    text = "مسدودسازی"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(secondaryText)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedRippleBackground(getColor(R.color.reset_surface), 12)
+                    contentDescription = "مسدود کردن فرستنده " + message.address
+                    setOnClickListener { confirmBlockSender(message) }
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
@@ -936,6 +953,33 @@ class MainActivity : BaseActivity() {
             .show()
     }
 
+
+    private fun confirmBlockSender(message: SmsMessage) {
+        val sender = message.address.trim()
+        if (sender.isBlank()) {
+            Toast.makeText(this, "شماره یا نام فرستنده در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("مسدودکردن فرستنده")
+            .setMessage(
+                "پیام‌های دریافتی از «" + sender +
+                    "» از این پس در Inbox پیامک‌یار نمایش داده نمی‌شوند. برای رفع مسدودی، این فرستنده را از فهرست مسدودی‌ها در تنظیمات حذف کنید."
+            )
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("مسدودکردن") { _, _ ->
+                val added = SmsBlockRepository(this).addBlockedSender(sender)
+                if (added) {
+                    selectedIds.clear()
+                    requestRender("در حال اعمال مسدودسازی...")
+                    Toast.makeText(this, "فرستنده به فهرست مسدودی‌ها اضافه شد.", Toast.LENGTH_SHORT).show()
+                } else {
+                    requestRender("در حال به‌روزرسانی Inbox...")
+                    Toast.makeText(this, "این فرستنده از قبل در فهرست مسدودی‌هاست.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+    }
 
     private fun toggleSelection(id: Long) {
         if (!selectedIds.add(id)) selectedIds.remove(id)

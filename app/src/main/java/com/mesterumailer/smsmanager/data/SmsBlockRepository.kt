@@ -28,6 +28,19 @@ class SmsBlockRepository(context: Context) {
         preferences.edit().remove(KEY_SENDERS).remove(KEY_CONTENT).apply()
     }
 
+    fun replaceSettings(settings: SmsBlockSettings) {
+        preferences.edit()
+            .putString(
+                KEY_SENDERS,
+                JSONArray(settings.blockedSenders.map { it.trim() }.filter { it.isNotBlank() }.distinct()).toString()
+            )
+            .putString(
+                KEY_CONTENT,
+                JSONArray(settings.blockedContent.map { it.trim() }.filter { it.isNotBlank() }.distinct()).toString()
+            )
+            .apply()
+    }
+
     private fun add(key: String, value: String): Boolean {
         val normalized = value.trim()
         if (normalized.isBlank()) return false

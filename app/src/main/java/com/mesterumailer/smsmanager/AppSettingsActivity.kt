@@ -32,16 +32,23 @@ import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.util.concurrent.Executors
 
 class AppSettingsActivity : BaseActivity() {
     private val notificationSettingsRepository by lazy { SmsNotificationSettingsRepository(this) }
     private var pendingSoundCategoryId: String? = null
     private var pendingSoundCategoryLabel: String? = null
     private var pendingNotificationCategoryId: String? = null
+    private val backupExecutor = Executors.newSingleThreadExecutor()
 
     companion object {
         private const val SOUND_PICKER_REQUEST_CODE = 4101
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 4102
+        private const val EXPORT_SETTINGS_REQUEST_CODE = 4103
+        private const val IMPORT_SETTINGS_REQUEST_CODE = 4104
     }
     private val page: Int get() = getColor(R.color.page_background)
     private val card: Int get() = getColor(R.color.card_background)
@@ -227,6 +234,7 @@ class AppSettingsActivity : BaseActivity() {
 
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildBackupCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -238,6 +246,172 @@ class AppSettingsActivity : BaseActivity() {
         return root
     }
 
+
+    private fun buildBackupCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = roundedBackground(card, 22)
+        elevation = dp(1).toFloat()
+
+        addView(buildSectionHeader(
+            "پشتیبان‌گیری و بازیابی",
+            "از تنظیمات فعلی برنامه یک فایل JSON بسازید تا بتوانید آن را در محل دلخواه نگه دارید یا بعداً بازیابی کنید. فایل شامل تم، تنظیمات Inbox، فهرست مسدودی‌ها، دسته‌ها و قوانین تشخیص و تنظیمات اعلان است؛ خود پیامک‌ها و تغییر دسته‌بندی تک‌تک پیام‌ها در آن ذخیره نمی‌شوند. بازیابی، تنظیمات فعلی را با اطلاعات فایل جایگزین می‌کند. فایل در محل انتخابی شما ذخیره می‌شود و به اینترنت نیاز ندارد."
+        ))
+
+        val actions = LinearLayout(this@AppSettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            addView(backupActionButton("ذخیره فایل JSON") { openBackupFilePicker() },
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(5) })
+            addView(backupActionButton("بازیابی فایل") { openRestoreFilePicker() },
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(5) })
+        }
+        addView(actions)
+    }
+
+    private fun backupActionButton(label: String, action: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 14)
+            isFocusable = true
+            setOnClickListener { action() }
+        }
+
+    private fun openBackupFilePicker() {
+        val date = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "sms-manager-settings-" + date + ".json")
+        }
+        runCatching { startActivityForResult(intent, EXPORT_SETTINGS_REQUEST_CODE) }
+            .onFailure {
+                Toast.makeText(this, "باز کردن محل ذخیره فایل ممکن نشد.", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun openRestoreFilePicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        runCatching { startActivityForResult(intent, IMPORT_SETTINGS_REQUEST_CODE) }
+            .onFailure {
+                Toast.makeText(this, "باز کردن انتخاب‌گر فایل ممکن نشد.", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun writeSettingsBackup(uri: Uri) {
+        val appContext = applicationContext
+        backupExecutor.execute {
+            val result = runCatching {
+                val json = com.mesterumailer.smsmanager.data.SettingsBackupManager.createJson(appContext)
+                val output = appContext.contentResolver.openOutputStream(uri, "wt")
+                    ?: throw IOException("امکان نوشتن فایل وجود ندارد.")
+                output.bufferedWriter(Charsets.UTF_8).use { it.write(json) }
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                Toast.makeText(
+                    this,
+                    if (result.isSuccess) "فایل پشتیبان ذخیره شد." else "ذخیره فایل پشتیبان انجام نشد.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun readSettingsBackup(uri: Uri) {
+        val appContext = applicationContext
+        backupExecutor.execute {
+            val result = runCatching {
+                val input = appContext.contentResolver.openInputStream(uri)
+                    ?: throw IOException("امکان خواندن فایل وجود ندارد.")
+                val output = ByteArrayOutputStream()
+                input.use { stream ->
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = stream.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > com.mesterumailer.smsmanager.data.SettingsBackupManager.MAX_FILE_BYTES) {
+                            throw IllegalArgumentException("حجم فایل پشتیبان بیش از حد مجاز است.")
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                }
+                com.mesterumailer.smsmanager.data.SettingsBackupManager.parse(
+                    String(output.toByteArray(), Charsets.UTF_8)
+                )
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { snapshot -> confirmSettingsRestore(snapshot) }
+                    .onFailure {
+                        Toast.makeText(
+                            this,
+                            it.message ?: "فایل پشتیبان معتبر نیست یا خوانده نشد.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+            }
+        }
+    }
+
+    private fun confirmSettingsRestore(
+        snapshot: com.mesterumailer.smsmanager.data.SettingsBackupSnapshot
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle("بازیابی تنظیمات")
+            .setMessage(
+                "تنظیمات فعلی با اطلاعات فایل جایگزین می‌شوند. " +
+                    snapshot.rules.size + " قانون/دسته، " +
+                    snapshot.blockedSenders.size + " فرستنده مسدود و " +
+                    snapshot.blockedContent.size + " عبارت مسدود در فایل وجود دارد. " +
+                    "پیامک‌های ذخیره‌شده در گوشی تغییر نمی‌کنند. ادامه می‌دهید؟"
+            )
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("بازیابی") { _, _ -> applySettingsBackup(snapshot) }
+            .show()
+    }
+
+    private fun applySettingsBackup(snapshot: com.mesterumailer.smsmanager.data.SettingsBackupSnapshot) {
+        val appContext = applicationContext
+        backupExecutor.execute {
+            val result = runCatching {
+                com.mesterumailer.smsmanager.data.SettingsBackupManager.restore(appContext, snapshot)
+                val repository = SmsNotificationSettingsRepository(appContext)
+                val labels = snapshot.rules.associate { it.categoryId to it.displayName }
+                val ids = (snapshot.rules.map { it.categoryId } +
+                    com.mesterumailer.smsmanager.model.SmsCategory.UNKNOWN.id).distinct()
+                ids.forEach { id ->
+                    runCatching {
+                        SmsNotificationManager.recreateChannel(
+                            appContext,
+                            id,
+                            labels[id] ?: com.mesterumailer.smsmanager.model.SmsCategory.fromId(id).label,
+                            repository.getSoundUri(id)
+                        )
+                    }
+                }
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (result.isSuccess) {
+                    Toast.makeText(this, "تنظیمات بازیابی شد.", Toast.LENGTH_SHORT).show()
+                    recreate()
+                } else {
+                    Toast.makeText(this, "بازیابی تنظیمات انجام نشد.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     private fun buildBlockSettingsCard(): View {
         val repository = SmsBlockRepository(this)
@@ -552,15 +726,27 @@ class AppSettingsActivity : BaseActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != SOUND_PICKER_REQUEST_CODE || resultCode != RESULT_OK) return
-        val categoryId = pendingSoundCategoryId ?: return
-        val label = pendingSoundCategoryLabel ?: categoryId
-        val picked = readPickedSoundUri(data)
-        notificationSettingsRepository.setSoundUri(categoryId, picked)
-        SmsNotificationManager.recreateChannel(this, categoryId, label, picked)
-        pendingSoundCategoryId = null
-        pendingSoundCategoryLabel = null
-        recreate()
+        if (resultCode != RESULT_OK) return
+
+        when (requestCode) {
+            SOUND_PICKER_REQUEST_CODE -> {
+                val categoryId = pendingSoundCategoryId ?: return
+                val label = pendingSoundCategoryLabel ?: categoryId
+                val picked = readPickedSoundUri(data)
+                notificationSettingsRepository.setSoundUri(categoryId, picked)
+                SmsNotificationManager.recreateChannel(this, categoryId, label, picked)
+                pendingSoundCategoryId = null
+                pendingSoundCategoryLabel = null
+                recreate()
+            }
+            EXPORT_SETTINGS_REQUEST_CODE -> data?.data?.let(::writeSettingsBackup)
+            IMPORT_SETTINGS_REQUEST_CODE -> data?.data?.let(::readSettingsBackup)
+        }
+    }
+
+    override fun onDestroy() {
+        backupExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     override fun onRequestPermissionsResult(

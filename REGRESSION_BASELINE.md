@@ -11,6 +11,9 @@
 - [ ] ترتیب newest/oldest
 - [ ] جست‌وجو در body
 - [ ] جست‌وجو در sender/address
+- [ ] مسدودسازی فرستنده از کارت پیام و ناپدیدشدن آن از Inbox برنامه
+- [ ] رفع مسدودی فقط از فهرست تنظیمات
+- [ ] خروجی JSON و بازیابی تنظیمات با تأیید کاربر
 - [ ] ترکیب search و category filter
 - [ ] Category visibility
 - [ ] Category activation

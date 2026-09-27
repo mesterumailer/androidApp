@@ -109,6 +109,10 @@ class SmsSettingsRepository(context: Context) {
         setInboxDateStartMillis(calendar.timeInMillis)
     }
 
+    fun clearInboxDate() {
+        preferences.edit().remove(KEY_INBOX_DATE_START).apply()
+    }
+
     private fun setInboxDateStartMillis(startMillis: Long) {
         preferences.edit()
             .putLong(KEY_INBOX_DATE_START, startMillis)

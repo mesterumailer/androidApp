@@ -23,6 +23,10 @@ class SmsNotificationSettingsRepository(context: Context) {
         editor.apply()
     }
 
+    fun clearAll() {
+        preferences.edit().clear().apply()
+    }
+
     companion object {
         private const val PREFERENCES_NAME = "sms_notification_settings"
     }
