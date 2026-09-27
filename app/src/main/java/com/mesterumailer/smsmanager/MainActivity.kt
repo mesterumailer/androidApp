@@ -309,20 +309,10 @@ class MainActivity : BaseActivity() {
             textDirection = View.TEXT_DIRECTION_RTL
             setPadding(dp(4), 0, dp(4), 0)
         }
-        addView(TextView(this@MainActivity).apply {
-            contentDescription = "راهنمای جست‌وجو"
-            text = "ⓘ"
-            textSize = 16f
-            setTextColor(secondaryText)
-            gravity = Gravity.CENTER
-            setOnClickListener {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("راهنمای جست‌وجو")
-                    .setMessage("بخشی از متن پیام یا نام/شماره فرستنده را وارد کنید. جست‌وجو به‌صورت زنده انجام می‌شود و می‌تواند هم‌زمان با فیلتر دسته‌ها استفاده شود.")
-                    .setPositiveButton("متوجه شدم", null)
-                    .show()
-            }
-        }, LinearLayout.LayoutParams(dp(30), dp(44)))
+        addView(buildHelpButton(
+            "جست‌وجو",
+            "بخشی از متن پیام یا نام/شماره فرستنده را وارد کنید. نتایج هنگام تایپ به‌روز می‌شوند و جست‌وجو با فیلتر دسته‌ها به‌صورت هم‌زمان اعمال می‌شود."
+        ), LinearLayout.LayoutParams(dp(34), dp(36)))
         addView(searchInput, LinearLayout.LayoutParams(0, dp(44), 1f))
         searchClear = TextView(this@MainActivity).apply {
             text = "×"
@@ -344,6 +334,25 @@ class MainActivity : BaseActivity() {
         })
     }
 
+    private fun buildHelpButton(title: String, message: String): TextView =
+        TextView(this).apply {
+            text = "?"
+            textSize = 17f
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
+            contentDescription = "راهنمای $title"
+            isFocusable = true
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("راهنمای $title")
+                    .setMessage(message)
+                    .setPositiveButton("متوجه شدم", null)
+                    .show()
+            }
+        }
+
     private fun categoryDefinitions(): List<Pair<String, String>> {
         val rules = if (currentRules.isEmpty()) FilterRuleRepository(this).loadRules() else currentRules
         return rules.map { it.categoryId to it.displayName } + (SmsCategory.UNKNOWN.id to SmsCategory.UNKNOWN.label)
@@ -359,19 +368,22 @@ class MainActivity : BaseActivity() {
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(14), dp(7), dp(14), dp(7))
         background = roundedBackground(cardBackground, 20)
-        addView(TextView(this@MainActivity).apply {
-            text = "فیلتر نمایش"
-            textSize = 15f
-            setTextColor(primaryText)
-            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-        })
-        addView(TextView(this@MainActivity).apply {
-            text = "راهنمای کوتاه: با لمس هر دسته، فقط همان دسته را در Inbox نمایش می‌دهید. این فیلتر پیامک را حذف نمی‌کند و با فعال/غیرفعال بودن دسته در تنظیمات جداست."
-            textSize = 11f
-            setTextColor(secondaryText)
-            setLineSpacing(0f, 1.08f)
-            setPadding(0, dp(3), 0, dp(3))
-        })
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            addView(TextView(this@MainActivity).apply {
+                text = "فیلتر نمایش"
+                textSize = 15f
+                setTextColor(primaryText)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+            addView(buildHelpButton(
+                "فیلتر نمایش",
+                "با انتخاب «همه»، نمایش همه دسته‌های فعال و قابل‌نمایش برقرار می‌شود. با لمس نام هر دسته، نمایش پیام‌های همان دسته روشن یا خاموش می‌شود. این فیلتر فقط نحوه نمایش در Inbox را تغییر می‌دهد؛ پیامک اصلی گوشی حذف یا تغییر نمی‌کند. فعال یا غیرفعال بودن دسته در تنظیمات نیز جدا از این فیلتر است."
+            ), LinearLayout.LayoutParams(dp(32), dp(32)))
+        }, LinearLayout.LayoutParams(-1, dp(34)))
         val horizontal = HorizontalScrollView(this@MainActivity).apply {
             isHorizontalScrollBarEnabled = false
             layoutDirection = View.LAYOUT_DIRECTION_RTL
