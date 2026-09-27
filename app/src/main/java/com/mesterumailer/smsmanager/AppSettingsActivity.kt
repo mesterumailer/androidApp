@@ -54,6 +54,37 @@ class AppSettingsActivity : BaseActivity() {
         setContentView(buildContent())
     }
 
+    private fun buildSectionHeader(title: String, message: String): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = title
+                textSize = 18f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "?"
+                textSize = 17f
+                setTextColor(accent)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+                contentDescription = "راهنمای $title"
+                isFocusable = true
+                setOnClickListener {
+                    AlertDialog.Builder(this@AppSettingsActivity)
+                        .setTitle("راهنمای $title")
+                        .setMessage(message)
+                        .setPositiveButton("متوجه شدم", null)
+                        .show()
+                }
+            }, LinearLayout.LayoutParams(dp(34), dp(34)))
+        }
+
     private fun buildContent(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -85,12 +116,6 @@ class AppSettingsActivity : BaseActivity() {
                 setTextColor(primary)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             })
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "ظاهر، Inbox، مسدودسازی و اعلان‌ها"
-                textSize = 12f
-                setTextColor(secondary)
-                setPadding(0, dp(3), 0, 0)
-            })
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(toolbar)
 
@@ -108,19 +133,10 @@ class AppSettingsActivity : BaseActivity() {
             background = roundedBackground(card, 22)
             elevation = dp(1).toFloat()
 
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "نمای برنامه"
-                textSize = 18f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "راهنمای کوتاه: حالت روشن یا تاریک را انتخاب کنید. انتخاب شما روی خود دستگاه ذخیره می‌شود."
-                textSize = 13f
-                setTextColor(secondary)
-                setLineSpacing(0f, 1.12f)
-                setPadding(0, dp(6), 0, dp(14))
-            })
+            addView(buildSectionHeader(
+                "نمای برنامه",
+                "در این بخش می‌توانید بین حالت روشن و تاریک جابه‌جا شوید. انتخاب شما به‌صورت محلی روی همین دستگاه ذخیره می‌شود و ظاهر بخش‌های برنامه را تغییر می‌دهد."
+            ))
 
             val options = LinearLayout(this@AppSettingsActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -142,18 +158,10 @@ class AppSettingsActivity : BaseActivity() {
             background = roundedBackground(getColor(R.color.accent_surface), 22)
             elevation = dp(1).toFloat()
 
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "صندوق پیامک"
-                textSize = 18f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "راهنمای کوتاه: سقف پیامک مشخص می‌کند چه تعداد پیام برای بررسی خوانده شود. محدوده خواندن و ترتیب نمایش هم از همین بخش کنترل می‌شوند."
-                textSize = 13f
-                setTextColor(secondary)
-                setPadding(0, dp(6), 0, dp(14))
-            })
+            addView(buildSectionHeader(
+                "صندوق پیامک",
+                "سقف پیامک تعداد پیام‌هایی را که برنامه از Inbox برای بررسی می‌خواند محدود می‌کند. در «آخرین پیام‌ها»، جدیدترین پیام‌ها تا سقف تعیین‌شده بررسی می‌شوند؛ در «تا تاریخ مشخص»، پیام‌های تا تاریخ انتخابی بررسی می‌شوند. ترتیب نمایش جدیدتر به قدیمی‌تر یا برعکس از دکمه مرتب‌سازی در صفحه اصلی تغییر می‌کند."
+            ))
 
             val limitRow = LinearLayout(this@AppSettingsActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -167,12 +175,6 @@ class AppSettingsActivity : BaseActivity() {
                         textSize = 14f
                         setTextColor(primary)
                         setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                    })
-                    addView(TextView(this@AppSettingsActivity).apply {
-                        text = "بین ${SmsSettingsRepository.MIN_INBOX_LIMIT} تا ${SmsSettingsRepository.MAX_INBOX_LIMIT} پیامک؛ مقدار کمتر، پردازش سریع‌تری دارد."
-                        textSize = 12f
-                        setTextColor(secondary)
-                        setPadding(0, dp(4), 0, 0)
                     })
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(TextView(this@AppSettingsActivity).apply {
@@ -225,13 +227,6 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
-        body.addView(TextView(this).apply {
-            text = "راهنمای کوتاه: «آخرین پیام‌ها» پیام‌های جدیدتر را تا سقف تعیین‌شده می‌خواند. در «تا تاریخ مشخص»، فقط پیام‌های تا تاریخ انتخابی وارد بررسی می‌شوند."
-            textSize = 12f
-            setTextColor(secondary)
-            setLineSpacing(0f, 1.1f)
-            setPadding(dp(4), dp(4), dp(4), 0)
-        })
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             isVerticalScrollBarEnabled = false
@@ -253,19 +248,10 @@ class AppSettingsActivity : BaseActivity() {
             background = roundedBackground(card, 22)
             elevation = dp(1).toFloat()
 
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "فیلتر مسدودسازی"
-                textSize = 18f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "راهنمای کوتاه: شماره/فرستنده یا عبارت دلخواه را مسدود کنید تا پیام قبل از دسته‌بندی و اعلان کنار گذاشته شود. SMS اصلی گوشی حذف یا تغییر نمی‌کند."
-                textSize = 13f
-                setTextColor(secondary)
-                setLineSpacing(0f, 1.12f)
-                setPadding(0, dp(6), 0, dp(14))
-            })
+            addView(buildSectionHeader(
+                "فیلتر مسدودسازی",
+                "می‌توانید شماره یا بخشی از نام فرستنده و نیز عبارت‌هایی از متن پیام را به فهرست مسدودسازی اضافه کنید. پیام منطبق پیش از دسته‌بندی و اعلان در این برنامه کنار گذاشته می‌شود؛ پیامک اصلی در برنامه پیامک گوشی حذف یا تغییر نمی‌کند. برای برداشتن فیلتر، آن را از همین فهرست حذف کنید."
+            ))
 
             addView(blockSectionTitle("شماره‌ها و فرستنده‌های مسدود", settings.blockedSenders.size))
             settings.blockedSenders.forEach { value ->
@@ -394,21 +380,12 @@ class AppSettingsActivity : BaseActivity() {
             background = roundedBackground(card, 22)
             elevation = dp(1).toFloat()
 
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "اعلان پیامک‌های جدید"
-                textSize = 18f
-                setTextColor(primary)
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            })
+            addView(buildSectionHeader(
+                "اعلان پیامک‌های جدید",
+                "اعلان هر دسته مستقل از دسته‌های دیگر روشن یا خاموش می‌شود و برای هر دسته می‌توانید صدای جداگانه‌ای از صداهای گوشی انتخاب کنید. برنامه ویبرهٔ اعلان تنظیم نمی‌کند. نمایش اعلان به مجوز اعلان Android و تنظیمات اعلان خود گوشی نیز بستگی دارد."
+            ))
 
             val permissionGranted = hasNotificationPermission()
-            addView(TextView(this@AppSettingsActivity).apply {
-                text = "راهنمای کوتاه: اعلان هر دسته مستقل است. آن را روشن یا خاموش کنید و از صداهای موجود گوشی یک صدا انتخاب کنید؛ ویبره نداریم و صدای اعلان تابع تنظیمات Android است."
-                textSize = 13f
-                setTextColor(secondary)
-                setLineSpacing(0f, 1.12f)
-                setPadding(0, dp(6), 0, dp(8))
-            })
             addView(TextView(this@AppSettingsActivity).apply {
                 text = if (permissionGranted) "دسترسی اعلان Android: فعال" else "دسترسی اعلان Android: غیرفعال"
                 textSize = 12f
