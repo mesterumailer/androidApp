@@ -648,6 +648,7 @@ app/src/main/java/com/mesterumailer/smsmanager/
 ├── MainActivity.kt
 ├── SettingsActivity.kt
 ├── AppSettingsActivity.kt
+├── TrashActivity.kt
 ├── PermissionSetupActivity.kt
 ├── SmsReceiver.kt
 ├── AppThemeManager.kt
