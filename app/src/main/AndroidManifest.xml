@@ -19,6 +19,9 @@
             android:name=".AppSettingsActivity"
             android:exported="false" />
         <activity
+            android:name=".TrashActivity"
+            android:exported="false" />
+        <activity
             android:name=".PermissionSetupActivity"
             android:exported="true">
             <intent-filter>
