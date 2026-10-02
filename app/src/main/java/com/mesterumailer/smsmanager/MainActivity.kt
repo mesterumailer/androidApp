@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -863,10 +864,22 @@ class MainActivity : BaseActivity() {
                 movementMethod = LinkMovementMethod.getInstance()
                 highlightColor = getColor(R.color.body_highlight)
             })
-            addView(LinearLayout(this@MainActivity).apply {
+            val actions = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutDirection = View.LAYOUT_DIRECTION_RTL
                 gravity = Gravity.CENTER_VERTICAL
+
+                addView(TextView(this@MainActivity).apply {
+                    text = "پاسخ"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(accent)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
+                    contentDescription = "پاسخ به پیام"
+                    setOnClickListener { replyToMessage(message) }
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "دسته‌بندی"
                     textSize = 12f
@@ -876,7 +889,8 @@ class MainActivity : BaseActivity() {
                     background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
                     contentDescription = "تغییر دسته‌بندی پیام"
                     setOnClickListener { showCategoryDialog(message) }
-                }, LinearLayout.LayoutParams(-2, dp(40)))
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "کپی متن"
                     textSize = 12f
@@ -886,6 +900,7 @@ class MainActivity : BaseActivity() {
                     background = roundedRippleBackground(getColor(R.color.icon_surface), 12)
                     setOnClickListener { copyText(message.body) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "مسدودسازی"
                     textSize = 12f
@@ -896,6 +911,7 @@ class MainActivity : BaseActivity() {
                     contentDescription = "مسدود کردن فرستنده " + message.address
                     setOnClickListener { confirmBlockSender(message) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "حذف"
                     textSize = 12f
@@ -906,6 +922,13 @@ class MainActivity : BaseActivity() {
                     contentDescription = "حذف پیام"
                     setOnClickListener { confirmDeleteMessages(listOf(message)) }
                 }, LinearLayout.LayoutParams(-2, dp(40)))
+            }
+
+            addView(HorizontalScrollView(this@MainActivity).apply {
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                addView(actions, ViewGroup.LayoutParams(-2, dp(40)))
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
@@ -997,6 +1020,22 @@ class MainActivity : BaseActivity() {
             .show()
     }
 
+    private fun replyToMessage(message: SmsMessage) {
+        val address = message.address.trim()
+        if (address.isBlank()) {
+            Toast.makeText(this, "شماره فرستنده برای پاسخ در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:" + Uri.encode(address))
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "برنامهٔ پیامک برای پاسخ‌گویی پیدا نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun confirmDeleteMessages(messages: List<SmsMessage>) {
         val uniqueMessages = messages.distinctBy { SmsTrashRepository.keyFor(it) }
         if (uniqueMessages.isEmpty()) {
