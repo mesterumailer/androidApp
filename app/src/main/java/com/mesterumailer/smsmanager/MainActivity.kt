@@ -15,6 +15,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.format.DateFormat
@@ -93,6 +95,7 @@ class MainActivity : BaseActivity() {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
         } else {
             loadInbox()
+            scheduleBatterySetupPrompt()
         }
     }
 
@@ -1176,6 +1179,38 @@ class MainActivity : BaseActivity() {
         super.onDestroy()
     }
 
+    private fun scheduleBatterySetupPrompt() {
+        window?.decorView?.postDelayed({
+            if (!isFinishing && !isDestroyed) maybePromptBatterySetup()
+        }, 500L)
+    }
+
+    private fun maybePromptBatterySetup() {
+        val preferences = getSharedPreferences(BATTERY_PROMPT_PREFERENCES, MODE_PRIVATE)
+        if (preferences.getBoolean(KEY_BATTERY_PROMPT_SHOWN, false)) return
+        preferences.edit().putBoolean(KEY_BATTERY_PROMPT_SHOWN, true).apply()
+
+        AlertDialog.Builder(this)
+            .setTitle("دریافت مطمئن‌تر اعلان‌ها")
+            .setMessage(
+                "در بعضی گوشی‌ها محدودیت باتری می‌تواند باعث تأخیر یا توقف دریافت اعلان‌های پیامک‌یار در پس‌زمینه شود. " +
+                    "اگر می‌خواهید پیامک‌یار برای اعلان‌های پس‌زمینه محدودیت کمتری داشته باشد، تنظیمات باتری این برنامه را بررسی کنید و در صورت وجود گزینه‌ای مثل «Unrestricted» یا «No restrictions» آن را انتخاب کنید."
+            )
+            .setNegativeButton("فعلاً نه", null)
+            .setPositiveButton("رفتن به تنظیمات") { _, _ -> openBatterySettings() }
+            .show()
+    }
+
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:" + packageName)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "باز کردن تنظیمات برنامه ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun hasRequiredSmsPermissions(): Boolean =
         checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
@@ -1235,6 +1270,9 @@ class MainActivity : BaseActivity() {
             .show()
     }
 
+    private val batteryPromptPreferences = "app_onboarding"
+    private val batteryPromptKey = "battery_setup_prompt_shown"
+
     private var pendingNotificationAddress: String? = null
     private var pendingNotificationBody: String? = null
     private var pendingNotificationTimestamp: Long = 0L
@@ -1249,10 +1287,16 @@ class MainActivity : BaseActivity() {
         if (requestCode != smsPermissionRequestCode) return
         if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
             loadInbox()
+            scheduleBatterySetupPrompt()
         } else {
             statusView.text = "دسترسی‌های لازم پیامک فعال نشد."
         }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private companion object {
+        const val BATTERY_PROMPT_PREFERENCES = "app_onboarding"
+        const val KEY_BATTERY_PROMPT_SHOWN = "battery_setup_prompt_shown"
+    }
+
 }
