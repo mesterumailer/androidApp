@@ -94,7 +94,7 @@
 - Override دسته‌بندی پیام در `SharedPreferences` ذخیره می‌شود.
 - امکان بازگشت از Override به تشخیص خودکار وجود دارد.
 - OTP چهار تا هشت رقمی به‌صورت اولیه استخراج می‌شود.
-- مبلغ تراکنش به‌صورت اولیه استخراج می‌شود.
+- استخراج و نمایش مبلغ تراکنش فعلاً غیرفعال است و برای نسخه‌های پیشرفته‌تر محفوظ می‌ماند.
 - SMS چندقسمتی در `SmsReceiver` از طریق `Telephony.Sms.Intents.getMessagesFromIntent()` به متن واحد تبدیل می‌شود.
 - duplicate notification با نگهداری کلیدهای اخیر در `SharedPreferences` کنترل می‌شود.
 - Notification به تفکیک category طراحی شده است.
@@ -237,7 +237,6 @@ Android Telephony.Sms.Inbox
           +----> category
           +----> categoryId
           +----> OTP
-          +----> amount
           +----> confidence
           |
           v
