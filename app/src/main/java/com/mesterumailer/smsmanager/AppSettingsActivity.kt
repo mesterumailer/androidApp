@@ -29,6 +29,9 @@ import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
+import com.mesterumailer.smsmanager.data.SmsTrashEntry
+import com.mesterumailer.smsmanager.data.SmsTrashRepository
+import com.mesterumailer.smsmanager.model.SmsCategory
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
@@ -233,6 +236,7 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(inboxCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildTrashCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildBackupCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
@@ -544,6 +548,138 @@ class AppSettingsActivity : BaseActivity() {
                 if (added) recreate()
             }
             .show()
+    }
+
+    private fun buildTrashCard(): View {
+        val repository = SmsTrashRepository(this)
+        val recent = repository.getRecent(SmsTrashRepository.DEFAULT_RECENT_LIMIT)
+        val total = repository.getAll().size
+        val labels = FilterRuleRepository(this).loadRules().associate { it.categoryId to it.displayName }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = roundedBackground(card, 22)
+            elevation = dp(1).toFloat()
+
+            addView(buildSectionHeader(
+                "سطل زباله",
+                "پیام‌هایی که در پیامک‌یار حذف می‌کنید فقط از نمایش Inbox این برنامه کنار گذاشته می‌شوند و SMS اصلی گوشی حذف نمی‌شود. پیام‌ها تا زمانی که خودتان بازیابی نکنید، به‌صورت دائمی در سطل زباله می‌مانند. در این بخش ۵۰ پیام حذف‌شدهٔ اخیر نمایش داده می‌شود."
+            ))
+
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = if (total == 0) {
+                    "سطل زباله خالی است."
+                } else if (total > SmsTrashRepository.DEFAULT_RECENT_LIMIT) {
+                    "$total پیام حذف‌شده؛ نمایش " + SmsTrashRepository.DEFAULT_RECENT_LIMIT + " پیام اخیر"
+                } else {
+                    "$total پیام حذف‌شده"
+                }
+                textSize = 12f
+                setTextColor(secondary)
+                setPadding(0, 0, 0, dp(10))
+            })
+
+            if (recent.isEmpty()) {
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = "پیامی در سطل زباله وجود ندارد."
+                    textSize = 13f
+                    setTextColor(secondary)
+                    gravity = Gravity.CENTER
+                    background = roundedBackground(getColor(R.color.soft_surface), 14)
+                    setPadding(dp(12), dp(14), dp(12), dp(14))
+                })
+            } else {
+                recent.forEachIndexed { index, entry ->
+                    addView(buildTrashRow(
+                        entry = entry,
+                        categoryLabel = labels[entry.categoryId]
+                            ?: SmsCategory.fromId(entry.categoryId).label,
+                        onRestore = {
+                            if (repository.restore(entry.key)) {
+                                Toast.makeText(this@AppSettingsActivity, "پیام بازیابی شد.", Toast.LENGTH_SHORT).show()
+                                recreate()
+                            } else {
+                                Toast.makeText(this@AppSettingsActivity, "بازیابی پیام انجام نشد.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ), LinearLayout.LayoutParams(-1, -2).apply {
+                        topMargin = if (index == 0) 0 else dp(6)
+                    })
+                }
+            }
+        }
+    }
+
+    private fun buildTrashRow(
+        entry: SmsTrashEntry,
+        categoryLabel: String,
+        onRestore: () -> Unit
+    ): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(12), dp(10), dp(12), dp(10))
+        background = roundedBackground(getColor(R.color.soft_surface), 16)
+
+        addView(LinearLayout(this@AppSettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = entry.address.ifBlank { "فرستنده نامشخص" }
+                textSize = 13f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = categoryLabel
+                textSize = 10f
+                setTextColor(accent)
+                gravity = Gravity.CENTER
+                background = roundedBackground(getColor(R.color.accent_surface), 12)
+                setPadding(dp(8), dp(5), dp(8), dp(5))
+            }, LinearLayout.LayoutParams(-2, dp(32)))
+        })
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = formatDateTime(entry.timestamp)
+            textSize = 11f
+            setTextColor(secondary)
+            setPadding(0, dp(4), 0, dp(4))
+        })
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = entry.body
+            textSize = 13f
+            setTextColor(primary)
+            maxLines = 4
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setLineSpacing(0f, 1.12f)
+            setPadding(0, 0, 0, dp(7))
+        })
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = "بازیابی"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+            contentDescription = "بازیابی پیام از سطل زباله"
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            setOnClickListener { onRestore() }
+        }, LinearLayout.LayoutParams(-1, dp(40)))
+    }
+
+    private fun formatDateTime(timestamp: Long): String {
+        val date = Date(timestamp)
+        return DateFormat.getDateInstance(DateFormat.SHORT, Locale.getDefault()).format(date) +
+            "  •  " +
+            DateFormat.getTimeInstance(DateFormat.SHORT, Locale.getDefault()).format(date)
     }
 
     private fun buildNotificationSettingsCard(): View {
