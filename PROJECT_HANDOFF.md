@@ -2,8 +2,8 @@
 
 این فایل مرجع ادامه توسعه پروژه برای توسعه‌دهنده انسانی و Agentهای هوش مصنوعی است. هدف آن این است که یک Agent جدید بدون اتکا به حافظه گفتگوهای قبلی بتواند وضعیت واقعی پروژه، تصمیم‌های قطعی، معماری فعلی، محدودیت‌ها و مسیر ادامه توسعه را درک کند.
 
-> **آخرین ممیزی مستندات و کد:** 2026-09-26  
-> **مرجع وضعیت فعلی:** branch `feature/phase-1-sms-inbox`، PR #3 به `main`
+> **آخرین ممیزی مستندات و کد:** 2026-10-02  
+> **مرجع وضعیت فعلی:** branch `feature/next-release`، مشتق‌شده از `release/v0.8.0` و در حال آماده‌سازی نسخه `0.9.0`
 
 ---
 
@@ -22,8 +22,8 @@
 - Android Gradle Plugin: 8.7.3
 - Kotlin plugin: 2.0.21
 - Gradle مورد استفاده در CI: 8.9
-- نسخه فعلی اپ در کد: `0.8.0`
-- versionCode فعلی: `13`
+- نسخه فعلی اپ در کد: `0.9.0`
+- versionCode فعلی: `14`
 
 ---
 
@@ -43,8 +43,8 @@
 ### خارج از محدوده فاز فعلی
 
 - Default SMS App شدن
-- ارسال SMS
-- حذف SMS
+- ارسال مستقیم SMS از خود پیامک‌یار
+- حذف واقعی SMS سیستم
 - تغییر SMS سیستم
 - Cloud Sync
 - حساب کاربری
@@ -105,6 +105,19 @@
 - GitHub Actions برای debug build + unit test وجود دارد.
 - Workflow جداگانه برای release signed APK وجود دارد.
 
+### امکانات اضافه‌شده در نسخه 0.9.0 (روی branch feature/next-release)
+
+- حذف تکی و دسته‌جمعی پیام‌ها به‌صورت Soft Delete، با تأیید کاربر.
+- سطل زباله دائمی در تنظیمات؛ پیام‌های حذف‌شده تا بازیابی در آن باقی می‌مانند و ۵۰ پیام حذف‌شده اخیر نمایش داده می‌شود.
+- بازیابی هر پیام از سطل زباله بدون تغییر SMS اصلی سیستم.
+- Reply از کارت پیام با باز کردن برنامه SMS گوشی از طریق Intent سیستم؛ ارسال مستقیم در این فاز انجام نمی‌شود.
+- پیشنهاد اختیاری تنظیم Battery برای اجرای پس‌زمینه و اعلان‌ها در اولین اجرای مناسب.
+- صفحه تنظیمات راهنمای Battery و امکان باز کردن تنظیمات برنامه.
+- کپی خودکار OTP در Clipboard با پیش‌فرض روشن و نمایش کد OTP در Notification.
+- OTP در Clipboard با flag محتوای حساس علامت‌گذاری می‌شود.
+- تنظیم Auto Copy در Backup/Restore JSON نیز ذخیره می‌شود.
+- Notification sound فعلاً در تست کاربر حل‌شده است و فقط regression check لازم دارد.
+
 ### هنوز کامل نشده
 
 - Persistence واقعی تحلیل‌ها با Room یا دیتابیس مشابه
@@ -128,36 +141,15 @@ Baseline رفتارهای فعلی در `REGRESSION_BASELINE.md` و بازخور
 
 قاعده این فاز: قابلیت‌های فعلی تا حد امکان باید بدون تغییر رفتاری حفظ شوند. قبل از هر refactor یا feature بزرگ، اثر آن بر baseline بررسی شود.
 
-## 5. Known Issues فعلی
+## 5. وضعیت Notification Sound و Battery
 
-### 4.1 صدای Notification
+### Notification Sound
 
-در تست عملی روی گوشی گزارش شد که با وجود انتخاب صدای اختصاصی برای یک category، هنگام رسیدن SMS و نمایش Notification صدایی پخش نشده است. بررسی کاربر همچنین نشان داد که در تنظیمات Android برای Notification Category مربوطه، Sound غیرفعال بوده است.
+مشکل صدای Notification که در تست عملی کاربر مشاهده شده بود، در نسخه 0.8.0 با بازسازی Channel بر اساس category و sound اصلاح شد و کاربر اعلام کرده که فعلاً مشکل حل شده است. Issue مربوطه [#4](https://github.com/mesterumailer/androidApp/issues/4) بسته شده است. در نسخه‌های بعدی فقط regression test روی categoryهای مختلف، sound، Heads-up/Pop-up و وضعیت Android Channel انجام شود.
 
-کد فعلی از Android Notification Channel استفاده می‌کند:
+### Battery / Background
 
-- Channel ID به‌صورت `sms_category_<categoryId>` است.
-- هنگام انتخاب صدا، `SmsNotificationManager.recreateChannel()` اجرا می‌شود.
-- Channel با `NotificationManager.IMPORTANCE_DEFAULT` در صورت داشتن صدا ساخته می‌شود.
-- `setSound(soundUri, AudioAttributes...)` روی Channel اعمال می‌شود.
-- ویبره روی Channel غیرفعال است.
-
-**Root cause به احتمال بسیار بالا با Channel قدیمی و Importance/Sound state آن مرتبط بود. GitHub Issue: [#4](https://github.com/mesterumailer/androidApp/issues/4). اصلاح اعمال شده، اما تا تست واقعی دستگاه موفق نباشد مورد بسته‌شده محسوب نمی‌شود.**
-
-برای verification نهایی این موارد باید روی دستگاه واقعی بررسی شوند:
-
-1. رفتار Notification Channel در نسخه Android/ROM دستگاه آزمایشی
-2. وضعیت Channel در تنظیمات سیستم Android
-3. سطح اهمیت Notification و mute شدن Channel توسط سیستم یا کاربر
-4. اعتبار/قابلیت دسترسی URI انتخاب‌شده
-5. Volume مسیر Notification در دستگاه
-6. تفاوت رفتار دستگاه‌های مختلف
-7. lifecycle و delete/recreate شدن Channel
-8. اینکه Channel قدیمی با state متفاوت در سیستم باقی مانده باشد
-
-این مسئله تا زمان موفقیت تست دستگاه واقعی باز است. پس از آن، Issue و Feedback فقط در صورت موفقیت verification بسته شوند.
-
----
+در تست عملی مشخص شد محدودیت Battery روی دستگاه کاربر باعث می‌شد اعلان‌ها فقط وقتی برنامه باز است به‌موقع کار کنند. در نسخه 0.9.0 یک راهنمای اختیاری در اولین اجرای مناسب و یک بخش دائمی در تنظیمات اضافه شده است تا کاربر بتواند تنظیمات باتری برنامه را بررسی کند و در صورت وجود گزینه‌هایی مثل `Unrestricted` یا `No restrictions` آن را انتخاب کند. نام و مسیر دقیق این گزینه‌ها به نسخه Android و رابط سازنده وابسته است.
 
 ## 6. مدل دسته‌بندی فعلی
 
@@ -278,15 +270,11 @@ Android Telephony.Sms.Inbox
 
 Receiver:
 
-```text
-SmsReceiver
-```
+`SmsReceiver`
 
 Action:
 
-```text
-android.provider.Telephony.SMS_RECEIVED
-```
+`android.provider.Telephony.SMS_RECEIVED`
 
 مراحل:
 
@@ -300,60 +288,33 @@ android.provider.Telephony.SMS_RECEIVED
 8. Block Filter اجرا می‌شود.
 9. Ruleها load می‌شوند.
 10. `SmsClassifier` تحلیل را انجام می‌دهد.
-11. `SmsNotificationSettingsRepository` تنظیم category را می‌خواند.
-12. `SmsNotificationPolicy` بررسی می‌کند که Notification مجاز است یا نه.
-13. `SmsNotificationManager.notifyIncoming()` Notification را می‌سازد.
+11. اگر Notification همان category فعال باشد، مسیر Notification ادامه پیدا می‌کند.
+12. اگر category برابر OTP باشد، کد استخراج‌شده در صورت فعال بودن Auto Copy به Clipboard کپی می‌شود.
+13. Notification با category و در صورت وجود OTP با نمایش واضح کد ساخته می‌شود.
 
-### نکته مهم درباره Category Activation
+### Soft Delete
 
-در طراحی فعلی، فعال/غیرفعال بودن category برای نمایش Inbox با فعال بودن Notification یکی نیست.
-
-همچنین Notification routing عمداً مستقل از Category Visibility/Activation صفحه Inbox پیاده شده است.
-
-بنابراین:
-
-- مخفی‌کردن category در Inbox لزوماً Notification آن را خاموش نمی‌کند.
-- فعال بودن Notification category توسط `SmsNotificationSettingsRepository` تعیین می‌شود.
-
-این رفتار فعلی است و قبل از تغییر آن باید تصمیم محصولی جداگانه گرفته شود.
-
----
+پیام‌های حذف‌شده با کلید پایدار محلی توسط `SmsTrashRepository` نگهداری می‌شوند و پیش از Search/Category display filter از Inbox برنامه کنار گذاشته می‌شوند. داده SMS سیستم تغییر نمی‌کند.
 
 ## 10. Notification Architecture
 
 فایل اصلی:
 
-```text
+```
 app/src/main/java/com/mesterumailer/smsmanager/notification/SmsNotificationManager.kt
 ```
 
-Channel ID:
+- Android O+ از Notification Channel استفاده می‌کند.
+- Channel فعلی بر اساس category و sound URI ساخته می‌شود تا تغییر sound بدون تکیه بر state قدیمی Channel انجام شود.
+- Importance فعلی `IMPORTANCE_HIGH` است تا امکان Heads-up/Pop-up وجود داشته باشد؛ Android و تنظیمات کاربر می‌توانند این نمایش را محدود کنند.
+- vibration در Channel غیرفعال است.
+- برای OTP، محتوای Notification شامل «کد تأیید: ...» می‌شود.
+- Notification از تنظیمات مستقل category پیروی می‌کند.
+- برای Android 13+ قبل از ارسال مجوز `POST_NOTIFICATIONS` بررسی می‌شود.
 
-```text
-sms_category_<categoryId>
-```
+### OTP Clipboard
 
-برای Android O+:
-
-- Channel بر اساس category ساخته می‌شود.
-- اگر sound وجود داشته باشد Importance برابر `IMPORTANCE_DEFAULT` است.
-- اگر sound تهی باشد Importance برابر `IMPORTANCE_LOW` است.
-- vibration غیرفعال است.
-- audio usage برابر `USAGE_NOTIFICATION` است.
-- content type برابر `CONTENT_TYPE_SONIFICATION` است.
-- badge فعال است.
-
-برای Android قدیمی‌تر از O:
-
-- sound مستقیم روی Notification Builder تنظیم می‌شود.
-- vibration نیز غیرفعال است.
-
-Android 13+:
-
-- قبل از ارسال Notification مجوز `POST_NOTIFICATIONS` بررسی می‌شود.
-- اگر مجوز وجود نداشته باشد، Notification ارسال نمی‌شود.
-
----
+`SmsReceiver` هنگام دریافت SMS، پس از classification و در صورت فعال بودن Notification همان category، اگر category برابر OTP و کد معتبر استخراج شده باشد، فقط خود کد را در Clipboard می‌نویسد. محتوای Clipboard با flag حساس علامت‌گذاری می‌شود تا پیش‌نمایش حساس Android در نسخه‌های جدید آن را آشکار نکند.
 
 ## 11. تنظیمات محلی و SharedPreferences
 
@@ -461,6 +422,44 @@ Keyها:
 blocked_senders
 blocked_content
 ```
+
+### OTP settings
+
+کلاس:
+
+```
+SmsOtpSettingsRepository
+```
+
+Preferences:
+
+```
+sms_otp_settings
+```
+
+Key:
+
+```
+auto_copy_enabled
+```
+
+پیش‌فرض این تنظیم **روشن** است.
+
+### Trash settings
+
+کلاس:
+
+```
+SmsTrashRepository
+```
+
+Preferences:
+
+```
+sms_trash
+```
+
+فهرست جزئیات و کلیدهای جست‌وجوی پیام‌های Soft Delete به‌صورت محلی نگهداری می‌شود.
 
 ### Notification settings
 
@@ -660,6 +659,8 @@ app/src/main/java/com/mesterumailer/smsmanager/
 │   ├── MessageOverrideRepository.kt
 │   ├── SmsBlockRepository.kt
 │   ├── SmsNotificationSettingsRepository.kt
+│   ├── SmsOtpSettingsRepository.kt
+│   ├── SmsTrashRepository.kt
 │   ├── SmsRepository.kt
 │   ├── SmsSettingsRepository.kt
 │   └── ThemePreferenceRepository.kt
@@ -750,7 +751,17 @@ Unit Test نمی‌تواند جای تست واقعی SMS receiver و Notificat
 22. تست newest/oldest sort.
 23. تست limit مختلف Inbox.
 24. تست until-date.
-25. تست light/dark theme.
+25. تست light/dark theme
+26. حذف تکی با تأیید و انتقال به سطل زباله
+27. حذف چندتایی با تأیید و بررسی تعداد پیام‌ها
+28. بررسی اینکه SMS اصلی گوشی پس از Soft Delete باقی مانده است
+29. نمایش ۵۰ پیام حذف‌شده اخیر در تنظیمات
+30. بازیابی یک پیام از سطل زباله و بازگشت آن به Inbox پیامک‌یار
+31. Reply روی شماره عادی و بررسی باز شدن SMS app
+32. دریافت OTP در حالی که برنامه باز نیست و فعال بودن Auto Copy پیش‌فرض
+33. بررسی Clipboard و حساس بودن محتوای OTP در Android 13+
+34. نمایش OTP در متن Notification
+35. بررسی prompt اختیاری Battery در اولین اجرای مناسب و باز شدن تنظیمات برنامه.
 
 ---
 
@@ -812,57 +823,12 @@ Keystore نباید وارد repository شود.
 
 ## 20. Git وضعیت فعلی
 
-Branch اصلی توسعه:
-
-```text
-feature/phase-1-sms-inbox
-```
-
-Branch پایدار:
-
-```text
-main
-```
-
-PR فعلی:
-
-```text
-#3
-feat: phase 1 SMS inbox manager
-```
-
-وضعیت PR در آخرین ممیزی:
-
-- open
-- draft
-- merged: false
-- mergeable: false
-
-مقایسه فعلی:
-
-```text
-main
-    ^ merge base: ad85ee3d9bd2575686237402169b0c36760df458
-    |
-feature/phase-1-sms-inbox
-```
-
-در آخرین بررسی:
-
-- feature branch: **230 commit جلوتر**
-- feature branch: **2 commit عقب‌تر**
-- وضعیت: **diverged**
-
-دو commit موجود در `main` و خارج از feature branch:
-
-1. `6192159ec...` — `Add configurable SMS inbox limit`
-2. `beb20585a...` — `fix: make Android Release workflow manually runnable from default branch`
-
-بنابراین قبل از merge کردن feature branch باید divergence با دقت بررسی و conflictهای احتمالی حل شوند.
-
-**نباید صرفاً با force push یا بازنویسی history مشکل را حل کرد مگر اینکه تصمیم صریح و آگاهانه گرفته شود.**
-
----
+- branch توسعه نسخه جدید: `feature/next-release`
+- base: `release/v0.8.0`
+- نسخه مقصد: `0.9.0`
+- versionCode مقصد: `14`
+- `main` نباید با featureهای نسخه جدید تغییر کند مگر با merge رسمی.
+- فایل `SmsOtpSettingsRepository.kt` یک بار به اشتباه روی main ایجاد شد و بلافاصله با یک commit cleanup حذف شد؛ نسخه صحیح آن روی `feature/next-release` قرار گرفته است.
 
 ## 21. سیاست پیشنهادی Git برای ادامه
 
@@ -888,66 +854,23 @@ main
 
 ---
 
-## 22. ترتیب ادامه توسعه پیشنهادی
+## 22. وضعیت و ترتیب ادامه توسعه
 
-### اولویت 1 — رفع Notification Sound Bug
+### وضعیت فعلی نسخه 0.9.0
 
-قبل از توسعه featureهای بزرگ، این مورد بررسی شود:
+Featureهای اصلی نسخه جدید در branch `feature/next-release` پیاده شده‌اند:
 
-- inspect کردن Channel واقعی روی دستگاه
-- بررسی importance
-- بررسی sound URI
-- بررسی system notification settings
-- بررسی delete/recreate lifecycle
-- تست روی حداقل دو Android/ROM متفاوت در صورت امکان
-- افزودن تست/لاگ فنی بدون ثبت متن SMS خصوصی
+- Soft Delete + Trash
+- Reply
+- Battery guidance
+- OTP Auto Copy + Notification code
 
-هدف این است که بین «sound انتخاب شده در برنامه» و «sound واقعاً پخش‌شده توسط Android» قرارداد واضح ایجاد شود.
+### گام بعد
 
-### اولویت 2 — پایدارسازی Phase 1
-
-- تکمیل Notification edge cases
-- تکمیل manual device test
-- تست performance Inbox در limitهای بالا
-- بررسی lifecycle receiver
-- بررسی پاکسازی duplicate keys
-- بررسی behavior بعد از reboot
-- بررسی behavior بعد از تغییر Ruleها
-
-### اولویت 3 — Inbox polish
-
-- important-only filter
-- confidence display
-- sorting پیشرفته
-- Rule test with sample message
-- edit Rule از message card
-
-### اولویت 4 — Persistence
-
-در صورت نیاز:
-
-```text
-Room
-  -> SMS metadata
-  -> analysis
-  -> category history
-  -> statistics
-```
-
-قبل از اضافه کردن Room باید مشخص شود دقیقاً چه داده‌ای ارزش persistence دارد؛ صرفاً برای بزرگ‌تر کردن معماری اضافه نشود.
-
-### اولویت 5 — Smart Analysis
-
-بعد از پایدار شدن Rule engine:
-
-- entity extraction
-- sender/service detection
-- transaction type
-- better scoring
-- improved classifier
-- در مراحل بعد امکان classifier هوشمند
-
----
+1. تکمیل Device Test روی گوشی واقعی، مخصوصاً Soft Delete/Trash، Reply، OTP Clipboard/Notification و Battery guidance.
+2. اجرای regression کامل نسخه 0.8.0 با تمرکز ویژه روی Notification Sound که فعلاً حل‌شده گزارش شده است.
+3. در صورت موفقیت تست‌ها، آماده‌سازی debug/release candidate و سپس merge کنترل‌شده به مسیر پایدار.
+4. قابلیت‌های Room، statistics، classifier هوشمندتر و featureهای بزرگ‌تر بعد از پایدار شدن 0.9.0 بررسی شوند.
 
 ## 23. اصول مهندسی پروژه
 
@@ -1063,25 +986,17 @@ Source of truth به ترتیب:
 
 ## 26. Release readiness فعلی
 
-در وضعیت فعلی پروژه را نباید صرفاً بر اساس وجود workflow یا Unit Test «کاملاً آماده Release» فرض کرد.
+نسخه 0.9.0 هنوز Release رسمی نشده است. کد روی branch `feature/next-release` قرار دارد و buildهای CI برای تغییرات مرحله‌ای در حال بررسی هستند.
 
-دلیل اصلی:
+قبل از Release رسمی باید:
 
-- تست Notification روی دستگاه واقعی یک ایراد sound را نشان داده است.
-- PR فعلی هنوز draft و mergeable=false است.
-- feature branch با main diverged است.
-- persistence و بخش‌هایی از Phase 1 هنوز کامل نیستند.
-
-بنابراین وضعیت فعلی را باید این‌طور در نظر گرفت:
-
-```text
-Phase 1
-  -> functional prototype / active development
-  -> practical testing in progress
-  -> not final production baseline yet
-```
-
----
+- CI نهایی سبز باشد.
+- Unit Testها سبز باشند.
+- تست دستگاه واقعی برای SMS/Notification انجام شود.
+- Soft Delete/Trash و Reply روی دستگاه واقعی بررسی شوند.
+- OTP Clipboard و Notification روی Android 13+ و دستگاه آزمایشی بررسی شوند.
+- Battery guidance روی دستگاه واقعی بررسی شود.
+- regression امکانات 0.8.0 انجام شود.
 
 ## 27. هدف نزدیک
 
@@ -1106,6 +1021,8 @@ Phase 1
 ---
 
 ## 28. آخرین وضعیت ثبت‌شده
+
+در نسخه 0.9.0، چهار قابلیت اصلی برای این milestone پیاده شده‌اند: Soft Delete/Trash، Reply، Battery guidance و OTP Auto Copy/Notification code. در مرحله بعد، تمرکز روی Device Test و Regression است.
 
 در آخرین وضعیت ثبت‌شده توسط تیم:
 
