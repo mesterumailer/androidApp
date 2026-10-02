@@ -45,7 +45,10 @@ class SmsTrashRepository(context: Context) {
     fun getRecent(limit: Int = DEFAULT_RECENT_LIMIT): List<SmsTrashEntry> =
         getAll().take(limit.coerceAtLeast(0))
 
-    fun getKeys(): Set<String> = getAll().mapTo(linkedSetOf()) { it.key }
+    fun getKeys(): Set<String> =
+        preferences.getStringSet(KEY_KEYS, emptySet()).orEmpty().toSet().ifEmpty {
+            getAll().mapTo(linkedSetOf()) { it.key }
+        }
 
     fun add(messages: Collection<SmsMessage>) {
         if (messages.isEmpty()) return
@@ -80,6 +83,7 @@ class SmsTrashRepository(context: Context) {
         const val DEFAULT_RECENT_LIMIT = 50
         private const val PREFERENCES_NAME = "sms_trash"
         private const val KEY_ITEMS = "items"
+        private const val KEY_KEYS = "keys"
 
         fun keyFor(message: SmsMessage): String =
             keyFor(message.address, message.timestamp, message.body)
@@ -109,6 +113,9 @@ class SmsTrashRepository(context: Context) {
                 put("deletedAt", entry.deletedAt)
             })
         }
-        preferences.edit().putString(KEY_ITEMS, array.toString()).apply()
+        preferences.edit()
+            .putString(KEY_ITEMS, array.toString())
+            .putStringSet(KEY_KEYS, entries.mapTo(linkedSetOf()) { it.key })
+            .apply()
     }
 }
