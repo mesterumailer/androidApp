@@ -42,6 +42,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
+import com.mesterumailer.smsmanager.data.SmsTrashRepository
 import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.InboxSortOrder
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
@@ -202,12 +203,14 @@ class MainActivity : BaseActivity() {
 
         processingExecutor.execute {
             val unblocked = source.filterNot { blockFilter.isBlocked(it.address, it.body) }
-            val filtered = SmsInboxFilter.filter(unblocked, visibleIds, query)
+            val trashedKeys = SmsTrashRepository(this).getKeys()
+            val available = unblocked.filterNot { SmsTrashRepository.keyFor(it) in trashedKeys }
+            val filtered = SmsInboxFilter.filter(available, visibleIds, query)
             val ordered = sortForDisplay(filtered)
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(ordered, unblocked.size, query, token, linkifiedBodies)
+                renderFilteredMessages(ordered, available.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -517,6 +520,7 @@ class MainActivity : BaseActivity() {
         addSelectionAction(this, "همه", "select_all") { toggleSelectAllVisible() }
         addSelectionAction(this, "کپی", "copy") { copySelectedMessages() }
         addSelectionAction(this, "اشتراک", "share") { shareSelectedMessages() }
+        addSelectionAction(this, "حذف", "delete") { confirmDeleteMessages(selectedMessages()) }
         addSelectionAction(this, "لغو", "cancel") { clearSelection() }
     }
 
@@ -719,7 +723,9 @@ class MainActivity : BaseActivity() {
         val blockSettings = SmsBlockRepository(this).getSettings()
         val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
         val unblocked = currentMessages.filterNot { blockFilter.isBlocked(it.address, it.body) }
-        return SmsInboxFilter.filter(unblocked, visibleIds, query)
+        val trashedKeys = SmsTrashRepository(this).getKeys()
+        val available = unblocked.filterNot { SmsTrashRepository.keyFor(it) in trashedKeys }
+        return SmsInboxFilter.filter(available, visibleIds, query)
     }
 
     private fun applyMessageOverrides(messages: List<SmsMessage>): List<SmsMessage> {
@@ -890,6 +896,16 @@ class MainActivity : BaseActivity() {
                     contentDescription = "مسدود کردن فرستنده " + message.address
                     setOnClickListener { confirmBlockSender(message) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+                addView(TextView(this@MainActivity).apply {
+                    text = "حذف"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(getColor(R.color.promotion_text))
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedRippleBackground(getColor(R.color.reset_surface), 12)
+                    contentDescription = "حذف پیام"
+                    setOnClickListener { confirmDeleteMessages(listOf(message)) }
+                }, LinearLayout.LayoutParams(-2, dp(40)))
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
@@ -977,6 +993,35 @@ class MainActivity : BaseActivity() {
                     requestRender("در حال به‌روزرسانی Inbox...")
                     Toast.makeText(this, "این فرستنده از قبل در فهرست مسدودی‌هاست.", Toast.LENGTH_SHORT).show()
                 }
+            }
+            .show()
+    }
+
+    private fun confirmDeleteMessages(messages: List<SmsMessage>) {
+        val uniqueMessages = messages.distinctBy { SmsTrashRepository.keyFor(it) }
+        if (uniqueMessages.isEmpty()) {
+            Toast.makeText(this, "پیامی برای حذف انتخاب نشده است.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val count = uniqueMessages.size
+        val targetText = if (count == 1) "این پیام" else "این $count پیام"
+        AlertDialog.Builder(this)
+            .setTitle(if (count == 1) "حذف پیام" else "حذف پیام‌ها")
+            .setMessage(
+                "$targetText به سطل زباله پیامک‌یار منتقل می‌شود. " +
+                    "پیامک اصلی گوشی حذف یا تغییر نمی‌کند و می‌توانید بعداً آن را از سطل زباله بازیابی کنید. ادامه می‌دهید؟"
+            )
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("حذف") { _, _ ->
+                SmsTrashRepository(this).add(uniqueMessages)
+                selectedIds.removeAll(uniqueMessages.map { it.id }.toSet())
+                requestRender("در حال انتقال پیام به سطل زباله...")
+                Toast.makeText(
+                    this,
+                    if (count == 1) "پیام به سطل زباله منتقل شد." else "$count پیام به سطل زباله منتقل شدند.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             .show()
     }
