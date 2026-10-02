@@ -35,7 +35,7 @@ class SmsTrashRepository(context: Context) {
                         categoryId = item.optString("categoryId").trim(),
                         deletedAt = item.optLong("deletedAt", 0L)
                     )
-                    if (entry.key.isNotBlank() && entry.timestamp > 0L && entry.body.isNotBlank()) {
+                    if (entry.key.isNotBlank() && entry.timestamp > 0L) {
                         add(entry)
                     }
                 }
