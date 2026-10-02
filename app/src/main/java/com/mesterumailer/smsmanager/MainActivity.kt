@@ -847,14 +847,6 @@ class MainActivity : BaseActivity() {
                     setOnClickListener { copyText(code) }
                 })
             }
-            message.analysis.amount?.let { amount ->
-                addView(TextView(this@MainActivity).apply {
-                    text = "مبلغ  $amount"
-                    textSize = 13f
-                    setTextColor(getColor(R.color.amount_text))
-                    setPadding(0, dp(8), 0, 0)
-                })
-            }
             addView(TextView(this@MainActivity).apply {
                 text = preparedBody
                 textSize = 14f
