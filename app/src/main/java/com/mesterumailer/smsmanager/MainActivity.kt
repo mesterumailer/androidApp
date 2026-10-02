@@ -1270,9 +1270,6 @@ class MainActivity : BaseActivity() {
             .show()
     }
 
-    private val batteryPromptPreferences = "app_onboarding"
-    private val batteryPromptKey = "battery_setup_prompt_shown"
-
     private var pendingNotificationAddress: String? = null
     private var pendingNotificationBody: String? = null
     private var pendingNotificationTimestamp: Long = 0L
