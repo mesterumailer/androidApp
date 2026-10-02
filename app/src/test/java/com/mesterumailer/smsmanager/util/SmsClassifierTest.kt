@@ -3,7 +3,6 @@ package com.mesterumailer.smsmanager.util
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -38,10 +37,10 @@ class SmsClassifierTest {
     private val classifier = SmsClassifier(rules)
 
     @Test
-    fun classifiesPersianTransactionAndExtractsAmount() {
+    fun classifiesPersianTransactionWithoutAmountExtraction() {
         val result = classifier.analyze("بانک ملت", "خرید به مبلغ 125,000 تومان با کارت انجام شد")
         assertEquals(SmsCategory.TRANSACTION, result.category)
-        assertNotNull(result.amount)
+        assertNull(result.amount)
     }
 
     @Test
