@@ -1,12 +1,18 @@
 package com.mesterumailer.smsmanager
 
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipDescription
 import android.content.Context
 import android.content.Intent
+import android.content.ClipboardManager
+import android.os.Build
+import android.os.PersistableBundle
 import android.provider.Telephony
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
+import com.mesterumailer.smsmanager.data.SmsOtpSettingsRepository
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.util.SmsBlockFilter
@@ -47,6 +53,11 @@ class SmsReceiver : BroadcastReceiver() {
         val settings = SmsNotificationSettingsRepository(context)
         if (!SmsNotificationPolicy.shouldNotify(false, settings.isEnabled(categoryId))) return
 
+        val otpCode = analysis.otpCode.takeIf { categoryId == SmsCategory.OTP.id }
+        if (otpCode != null && SmsOtpSettingsRepository(context).isAutoCopyEnabled()) {
+            copyOtpToClipboard(context, otpCode)
+        }
+
         SmsNotificationManager.notifyIncoming(
             context = context,
             categoryId = categoryId,
@@ -54,8 +65,24 @@ class SmsReceiver : BroadcastReceiver() {
             address = address,
             body = body,
             timestamp = timestamp,
-            soundUri = settings.getSoundUri(categoryId)
+            soundUri = settings.getSoundUri(categoryId),
+            otpCode = otpCode
         )
+    }
+
+    private fun copyOtpToClipboard(context: Context, code: String) {
+        val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+        val clip = ClipData.newPlainText("کد تأیید", code)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            clip.description.extras = PersistableBundle().apply {
+                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+            }
+        } else {
+            clip.description.extras = PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
+        }
+        runCatching { clipboard.setPrimaryClip(clip) }
     }
 
     private fun markIfNew(context: Context, key: String): Boolean {
