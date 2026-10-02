@@ -6,7 +6,6 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 
 class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
-    private val amountRegex = Regex("(?i)(?:amount|مبلغ|برداشت|واریز|خرید|پرداخت)\\D{0,20}([\\d,.]+)")
 
     fun analyze(address: String, body: String): SmsAnalysis {
         val normalizedBody = normalize(body)
@@ -24,9 +23,9 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         val categoryId = winningRule?.categoryId ?: SmsCategory.UNKNOWN.id
         val category = SmsCategory.fromId(categoryId)
 
-        val normalizedDigits = normalizeDigits(body)
-        val otp = otpRegex.find(normalizedDigits)?.value
-        val amount = amountRegex.find(normalizedDigits)?.groupValues?.getOrNull(1)
+        // Amount extraction is intentionally disabled for now to keep Inbox
+        // loading/filtering focused on the active classification features.
+        val otp = otpRegex.find(normalizedBody)?.value
         val confidence = candidates.firstOrNull()?.second?.let {
             (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
         } ?: 0f
@@ -35,7 +34,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
             category = category,
             categoryId = categoryId,
             otpCode = otp,
-            amount = amount,
+            amount = null,
             confidence = confidence
         )
     }
