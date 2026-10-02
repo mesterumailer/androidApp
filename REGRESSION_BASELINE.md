@@ -21,7 +21,6 @@
 - [ ] عدم حذف SMS اصلی هنگام block
 - [ ] Rule-based classification
 - [ ] OTP extraction اولیه
-- [ ] transaction amount extraction اولیه
 - [ ] manual category override
 - [ ] بازگشت از override به auto classification
 - [ ] soft delete تکی و دسته‌جمعی بدون حذف SMS سیستم
@@ -30,6 +29,10 @@
 - [ ] light/dark theme
 - [ ] local persistence در SharedPreferences
 - [ ] Auto Copy پیش‌فرض روشن برای OTP
+
+## Deferred / disabled features
+
+- [ ] استخراج و نمایش مبلغ تراکنش فعلاً غیرفعال است؛ در نسخه‌های پیشرفته‌تر قابل بازگشت است.
 
 ## Live SMS / notification
 
