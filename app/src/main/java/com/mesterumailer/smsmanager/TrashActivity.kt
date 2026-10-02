@@ -30,11 +30,6 @@ class TrashActivity : BaseActivity() {
         setContentView(buildContent())
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (!isFinishing) setContentView(buildContent())
-    }
-
     private fun buildContent(): View {
         val repository = SmsTrashRepository(this)
         val recent = repository.getRecent(SmsTrashRepository.DEFAULT_RECENT_LIMIT)
