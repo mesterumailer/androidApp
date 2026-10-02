@@ -3,10 +3,12 @@ package com.mesterumailer.smsmanager
 import androidx.appcompat.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
+import android.provider.Settings
 import android.net.Uri
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import android.media.RingtoneManager
 import android.graphics.Typeface
 import android.graphics.Color
@@ -238,6 +240,7 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildTrashCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildBatterySettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildBackupCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         val scroll = ScrollView(this).apply {
@@ -250,6 +253,61 @@ class AppSettingsActivity : BaseActivity() {
         return root
     }
 
+
+
+    private fun buildBatterySettingsCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = roundedBackground(card, 22)
+        elevation = dp(1).toFloat()
+
+        addView(buildSectionHeader(
+            "باتری و اجرای پس‌زمینه",
+            "در بعضی گوشی‌ها، محدودیت باتری می‌تواند اجرای پس‌زمینه و دریافت به‌موقع اعلان‌های پیامک‌یار را محدود کند. برای دریافت مطمئن‌تر اعلان‌ها، تنظیمات باتری برنامه را بررسی کنید و در صورت وجود گزینه‌ای مثل «Unrestricted» یا «No restrictions» آن را انتخاب کنید. این تنظیم توسط خود Android یا رابط سازندهٔ گوشی کنترل می‌شود."
+        ))
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = batteryOptimizationStatus()
+            textSize = 12f
+            setTextColor(secondary)
+            setLineSpacing(0f, 1.12f)
+            setPadding(0, 0, 0, dp(10))
+        })
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = "باز کردن تنظیمات باتری برنامه"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 14)
+            setPadding(dp(10), dp(11), dp(10), dp(11))
+            contentDescription = "باز کردن تنظیمات باتری برنامه"
+            setOnClickListener { openBatterySettings() }
+        }, LinearLayout.LayoutParams(-1, dp(46)))
+    }
+
+    private fun batteryOptimizationStatus(): String {
+        val powerManager = getSystemService(PowerManager::class.java)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            powerManager?.isIgnoringBatteryOptimizations(packageName) == true
+        ) {
+            "بهینه‌سازی باتری در سطح سیستم برای این برنامه نادیده گرفته می‌شود. ممکن است رابط سازنده همچنان گزینه‌های محدودکنندهٔ دیگری داشته باشد."
+        } else {
+            "وضعیت دقیق «Unrestricted / No restrictions» به نسخهٔ Android و رابط سازندهٔ گوشی وابسته است. دکمهٔ زیر تنظیمات باتری برنامه را باز می‌کند تا وضعیت را بررسی کنید."
+        }
+    }
+
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:" + packageName)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure {
+                Toast.makeText(this, "باز کردن تنظیمات برنامه ممکن نشد.", Toast.LENGTH_SHORT).show()
+            }
+    }
 
     private fun buildBackupCard(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
