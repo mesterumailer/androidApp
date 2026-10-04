@@ -49,10 +49,20 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         if (requiredMisses > 0) return 0
 
         val senderHits = rule.senderContains.count { normalize(it) in sender }
-        if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return 0
+        if (rule.senderContains.isNotEmpty() && senderHits == 0 && hasReliableTextSender(sender)) return 0
 
         val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3)
         return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
+    }
+
+    private fun hasReliableTextSender(sender: String): Boolean {
+        // Numeric short codes/phone numbers do not expose a human-readable
+        // sender name through Telephony.Sms.ADDRESS. Keep keyword classification
+        // as a fallback for those senders so existing OTP/bank/service rules do
+        // not regress. For textual/alphanumeric sender addresses, a configured
+        // sender filter is a real constraint.
+        val compact = sender.filterNot { it in "+-(). " }
+        return compact.isNotEmpty() && compact.any { !it.isDigit() }
     }
 
     private fun normalize(value: String): String = normalizeDigits(value)
