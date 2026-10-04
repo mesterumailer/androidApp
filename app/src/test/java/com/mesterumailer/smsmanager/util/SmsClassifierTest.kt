@@ -44,6 +44,72 @@ class SmsClassifierTest {
     }
 
     @Test
+    fun senderFilterRejectsTextualSenderMismatchEvenWhenKeywordMatches() {
+        val senderRule = FilterRule(
+            categoryId = "transaction",
+            displayName = "تراکنش مالی",
+            senderContains = listOf("bank", "بانک"),
+            anyKeywords = listOf("خرید"),
+            minimumAnyMatches = 1,
+            priority = 30
+        )
+
+        val result = SmsClassifier(listOf(senderRule))
+            .analyze("فروشگاه", "خرید با کارت انجام شد")
+
+        assertEquals(SmsCategory.UNKNOWN, result.category)
+    }
+
+    @Test
+    fun senderFilterStillAllowsNumericShortCodeFallback() {
+        val senderRule = FilterRule(
+            categoryId = "transaction",
+            displayName = "تراکنش مالی",
+            senderContains = listOf("bank", "بانک"),
+            anyKeywords = listOf("خرید"),
+            minimumAnyMatches = 1,
+            priority = 30
+        )
+
+        val result = SmsClassifier(listOf(senderRule))
+            .analyze("50001234", "خرید با کارت انجام شد")
+
+        assertEquals(SmsCategory.TRANSACTION, result.category)
+    }
+
+    @Test
+    fun allRequiredKeywordsMustMatch() {
+        val strictRule = FilterRule(
+            categoryId = "service",
+            displayName = "خدمات",
+            requiredKeywords = listOf("بانک", "کارت"),
+            anyKeywords = listOf("فعال"),
+            minimumAnyMatches = 1
+        )
+
+        val result = SmsClassifier(listOf(strictRule))
+            .analyze("بانک ملت", "کارت فعال شد")
+
+        assertEquals(SmsCategory.UNKNOWN, result.category)
+    }
+
+    @Test
+    fun requiredKeywordsMatchWhenAllArePresent() {
+        val strictRule = FilterRule(
+            categoryId = "service",
+            displayName = "خدمات",
+            requiredKeywords = listOf("بانک", "کارت"),
+            anyKeywords = listOf("فعال"),
+            minimumAnyMatches = 1
+        )
+
+        val result = SmsClassifier(listOf(strictRule))
+            .analyze("بانک ملت", "بانک اعلام کرد کارت فعال شد")
+
+        assertEquals(SmsCategory.SERVICE, result.category)
+    }
+
+    @Test
     fun classifiesPromotionFromUserRule() {
         val result = classifier.analyze("90001", "فقط امروز 50% تخفیف ویژه")
         assertEquals(SmsCategory.PROMOTION, result.category)
