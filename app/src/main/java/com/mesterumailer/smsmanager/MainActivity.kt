@@ -835,17 +835,19 @@ class MainActivity : BaseActivity() {
                 setTextColor(secondaryText)
                 setPadding(0, dp(5), 0, dp(8))
             })
-            message.analysis.otpCode?.let { code ->
-                addView(TextView(this@MainActivity).apply {
-                    text = "کد تأیید  $code"
-                    textSize = 14f
-                    setTextColor(accent)
-                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                    setPadding(dp(12), dp(9), dp(12), dp(9))
-                    background = roundedBackground(getColor(R.color.accent_surface), 14)
-                    contentDescription = "کد تأیید؛ برای کپی لمس کنید"
-                    setOnClickListener { copyText(code) }
-                })
+            if (message.analysis.categoryId == SmsCategory.OTP.id) {
+                message.analysis.otpCode?.let { code ->
+                    addView(TextView(this@MainActivity).apply {
+                        text = "کد تأیید  $code"
+                        textSize = 14f
+                        setTextColor(accent)
+                        setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                        setPadding(dp(12), dp(9), dp(12), dp(9))
+                        background = roundedBackground(getColor(R.color.accent_surface), 14)
+                        contentDescription = "کد تأیید؛ برای کپی لمس کنید"
+                        setOnClickListener { copyText(code) }
+                    })
+                }
             }
             addView(TextView(this@MainActivity).apply {
                 text = preparedBody
