@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="icon_blue">#7E9BFF</color>
+    <color name="icon_mint">#64D3A7</color>
+
+    <color name="touch_ripple">#32FFFFFF</color>
+
+    <color name="page_background">#0C0F14</color>
+    <color name="card_background">#141820</color>
+    <color name="primary_text">#F2F4F7</color>
+    <color name="secondary_text">#AAB3C2</color>
+    <color name="accent">#9BAEFF</color>
+    <color name="accent_surface">#202B49</color>
+    <color name="soft_surface">#1D222A</color>
+    <color name="selection_background">#202B45</color>
+    <color name="selected_message_background">#223454</color>
+    <color name="processing_overlay">#50000000</color>
+    <color name="hint_text">#8993A2</color>
+    <color name="body_text">#D7DCE5</color>
+    <color name="body_highlight">#3D4D73</color>
+    <color name="amount_text">#72D7AA</color>
+    <color name="reset_surface">#252A33</color>
+    <color name="icon_surface">#20252E</color>
+    <color name="disabled_text">#A8B0BC</color>
+
+    <color name="transaction_background">#17382B</color>
+    <color name="transaction_text">#70D6A9</color>
+    <color name="promotion_background">#3B2427</color>
+    <color name="promotion_text">#F29A9A</color>
+    <color name="service_background">#2C243D</color>
+    <color name="service_text">#C2A3F5</color>
+    <color name="otp_background">#1D2945</color>
+    <color name="delivery_background">#21313E</color>
+    <color name="delivery_text">#92BDD8</color>
+    <color name="unknown_background">#252A33</color>
+</resources>
