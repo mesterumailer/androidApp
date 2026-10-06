@@ -6,6 +6,13 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 
 class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
+    private val otpContextRegex = Regex("(?i)(?<![a-z])(?:verification\\s+code|one[- ]time\\s+(?:password|code)|passcode|otp|code)(?![a-z])|کد|رمز")
+    private val otpRejectedContexts = listOf(
+        "مبلغ", "شماره", "پیگیری", "رهگیری", "مرجع", "شناسه", "تاریخ", "زمان",
+        "موجودی", "مانده", "حساب", "کارت", "تراکنش", "فاکتور", "قبض",
+        "amount", "tracking", "reference", "transaction", "balance", "account", "card", "invoice", "date", "time"
+    )
+    private val maxOtpContextDistance = 32
 
     fun analyze(address: String, body: String): SmsAnalysis {
         val normalizedBody = normalize(body)
@@ -25,7 +32,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
 
         // Amount extraction is intentionally disabled for now to keep Inbox
         // loading/filtering focused on the active classification features.
-        val otp = otpRegex.find(normalizedBody)?.value
+        val otp = extractOtp(normalizedBody)
         val confidence = candidates.firstOrNull()?.second?.let {
             (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
         } ?: 0f
@@ -37,6 +44,26 @@ class SmsClassifier(private val rules: List<FilterRule>) {
             amount = null,
             confidence = confidence
         )
+    }
+
+    private fun extractOtp(normalizedBody: String): String? {
+        val candidates = otpRegex.findAll(normalizedBody).toList()
+        if (candidates.isEmpty()) return null
+
+        val contexts = otpContextRegex.findAll(normalizedBody).toList()
+        for (context in contexts) {
+            val searchStart = context.range.last + 1
+            val candidate = candidates.firstOrNull {
+                it.range.first >= searchStart &&
+                    it.range.first - searchStart <= maxOtpContextDistance &&
+                    otpRejectedContexts.none { rejected ->
+                        rejected in normalizedBody.substring(searchStart, it.range.first)
+                    }
+            }
+            if (candidate != null) return candidate.value
+        }
+
+        return null
     }
 
     private fun score(rule: FilterRule, sender: String, body: String): Int {
