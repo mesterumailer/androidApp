@@ -61,7 +61,7 @@ class SmsClassifierTest {
     }
 
     @Test
-    fun senderFilterStillAllowsNumericShortCodeFallback() {
+    fun senderFilterRejectsNumericSenderMismatchEvenWhenKeywordMatches() {
         val senderRule = FilterRule(
             categoryId = "transaction",
             displayName = "تراکنش مالی",
@@ -73,6 +73,23 @@ class SmsClassifierTest {
 
         val result = SmsClassifier(listOf(senderRule))
             .analyze("50001234", "خرید با کارت انجام شد")
+
+        assertEquals(SmsCategory.UNKNOWN, result.category)
+    }
+
+    @Test
+    fun senderFilterMatchesConfiguredSender() {
+        val senderRule = FilterRule(
+            categoryId = "transaction",
+            displayName = "تراکنش مالی",
+            senderContains = listOf("bank", "بانک"),
+            anyKeywords = listOf("خرید"),
+            minimumAnyMatches = 1,
+            priority = 30
+        )
+
+        val result = SmsClassifier(listOf(senderRule))
+            .analyze("بانک ملت", "خرید با کارت انجام شد")
 
         assertEquals(SmsCategory.TRANSACTION, result.category)
     }
@@ -133,7 +150,6 @@ class SmsClassifierTest {
         val result = strictClassifier.analyze("90001", "امروز تخفیف داریم")
         assertEquals(SmsCategory.UNKNOWN, result.category)
     }
-
 
     @Test
     fun preservesCustomCategoryIdForUserDefinedRule() {
