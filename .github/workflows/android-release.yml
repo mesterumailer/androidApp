@@ -2,29 +2,57 @@ name: Android Release
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch, tag, or commit to build'
-        required: true
-        default: 'feature/phase-1-sms-inbox'
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  release:
+  release_candidate:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Checkout
+      - name: Checkout selected release branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Validate release candidate branch and metadata
+        id: release_metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_BRANCH="$GITHUB_REF_NAME"
+          [[ "$RELEASE_BRANCH" == release/v* ]] || {
+            echo "Release Candidate must be built from a release/vX.Y.Z branch"
+            exit 1
+          }
+
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)"/\1/p' app/build.gradle.kts | head -n 1)
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$VERSION_NAME" || { echo "versionName not found"; exit 1; }
+          test -n "$VERSION_CODE" || { echo "versionCode not found"; exit 1; }
+
+          EXPECTED_BRANCH="release/v$VERSION_NAME"
+          test "$RELEASE_BRANCH" = "$EXPECTED_BRANCH" || {
+            echo "Release branch ($RELEASE_BRANCH) does not match app version ($VERSION_NAME)"
+            exit 1
+          }
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify critical source invariants
+        run: bash scripts/verify-critical-invariants.sh
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -38,6 +66,161 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-keystore.jks"
+          test -s "$RUNNER_TEMP/release-keystore.jks" || { echo "Release keystore is empty"; exit 1; }
+
+      - name: Build signed release candidate
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "ANDROID_KEY_ALIAS secret is missing"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "ANDROID_KEY_PASSWORD secret is missing"; exit 1; }
+          gradle testDebugUnitTest assembleRelease --no-daemon
+
+      - name: Verify candidate APK
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls -1d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1)
+          AAPT=$(ls -1d "$ANDROID_HOME"/build-tools/*/aapt 2>/dev/null | sort -V | tail -n 1)
+          test -n "$APKSIGNER" || { echo "apksigner not found"; exit 1; }
+          test -n "$AAPT" || { echo "aapt not found"; exit 1; }
+
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$APK" || { echo "Release candidate APK not found"; exit 1; }
+
+          "$APKSIGNER" verify --verbose "$APK"
+          BADGING=$("$AAPT" dump badging "$APK")
+          echo "$BADGING" | grep -F "package: name='com.mesterumailer.smsmanager'" >/dev/null || {
+            echo "APK package name mismatch"
+            exit 1
+          }
+          EXPECTED_VERSION="versionName='${{ steps.release_metadata.outputs.version_name }}'"
+          echo "$BADGING" | grep -F "$EXPECTED_VERSION" >/dev/null || {
+            echo "APK versionName does not match release metadata"
+            exit 1
+          }
+
+      - name: Package candidate
+        id: package
+        env:
+          VERSION_NAME: ${{ steps.release_metadata.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          OUTPUT="app/build/outputs/apk/release/SmsManager-$VERSION_NAME-rc.apk"
+          cp "$APK" "$OUTPUT"
+          sha256sum "$OUTPUT" > "$OUTPUT.sha256"
+          SHA256=$(sha256sum "$OUTPUT" | awk '{print $1}')
+
+          cat > "app/build/outputs/apk/release/RELEASE_CANDIDATE.txt" <<EOF
+          Release Candidate
+          Version: $VERSION_NAME
+          VersionCode: ${{ steps.release_metadata.outputs.version_code }}
+          Branch: $GITHUB_REF_NAME
+          Commit: ${{ github.sha }}
+          APK SHA-256: $SHA256
+          Signature: VERIFIED
+          Tag after device verification: ${{ steps.release_metadata.outputs.tag_name }}
+          Status: DEVICE_TEST_REQUIRED
+          EOF
+
+      - name: Upload signed release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: sms-manager-release-candidate-${{ steps.release_metadata.outputs.tag_name }}-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/release/SmsManager-${{ steps.release_metadata.outputs.version_name }}-rc.apk
+            app/build/outputs/apk/release/SmsManager-${{ steps.release_metadata.outputs.version_name }}-rc.apk.sha256
+            app/build/outputs/apk/release/RELEASE_CANDIDATE.txt
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag, release branch and version metadata
+        id: release_metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)"/\1/p' app/build.gradle.kts | head -n 1)
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$VERSION_NAME" || { echo "versionName not found"; exit 1; }
+          test -n "$VERSION_CODE" || { echo "versionCode not found"; exit 1; }
+
+          TAG_NAME="$GITHUB_REF_NAME"
+          EXPECTED_TAG="v$VERSION_NAME"
+          test "$TAG_NAME" = "$EXPECTED_TAG" || {
+            echo "Tag ($TAG_NAME) does not match app version ($EXPECTED_TAG)"
+            exit 1
+          }
+
+          RELEASE_BRANCH="release/$TAG_NAME"
+          BRANCH_SHA=$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | awk 'NR == 1 { print $1 }')
+          test -n "$BRANCH_SHA" || {
+            echo "Required release branch $RELEASE_BRANCH was not found"
+            exit 1
+          }
+          test "$BRANCH_SHA" = "$GITHUB_SHA" || {
+            echo "Tag $TAG_NAME must point exactly to the HEAD of $RELEASE_BRANCH"
+            echo "Tag commit:    $GITHUB_SHA"
+            echo "Branch HEAD:   $BRANCH_SHA"
+            exit 1
+          }
+
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME" >/dev/null 2>&1; then
+            echo "A GitHub Release already exists for $TAG_NAME; refusing to overwrite it"
+            exit 1
+          fi
+
+          LATEST_TAG=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name' 2>/dev/null || true)
+          if [[ -n "$LATEST_TAG" && "$LATEST_TAG" != "$TAG_NAME" ]]; then
+            PREVIOUS_VERSION_CODE=$(git show "refs/tags/$LATEST_TAG:app/build.gradle.kts" 2>/dev/null \
+              | sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' | head -n 1 || true)
+            if [[ -n "$PREVIOUS_VERSION_CODE" ]]; then
+              test "$VERSION_CODE" -gt "$PREVIOUS_VERSION_CODE" || {
+                echo "versionCode ($VERSION_CODE) must be greater than latest released versionCode ($PREVIOUS_VERSION_CODE from $LATEST_TAG)"
+                exit 1
+              }
+            fi
+          fi
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
           test -n "$ANDROID_KEYSTORE_BASE64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-keystore.jks"
           test -s "$RUNNER_TEMP/release-keystore.jks" || { echo "Release keystore is empty"; exit 1; }
@@ -49,25 +232,89 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
           test -n "$ANDROID_KEY_ALIAS" || { echo "ANDROID_KEY_ALIAS secret is missing"; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo "ANDROID_KEY_PASSWORD secret is missing"; exit 1; }
           gradle testDebugUnitTest assembleRelease --no-daemon
 
-      - name: Verify APK signature
+      - name: Verify APK signature and identity
+        id: verify_apk
+        shell: bash
         run: |
-          APKSIGNER=$(find "$ANDROID_HOME" -name apksigner -type f | head -n 1)
-          test -n "$APKSIGNER" || { echo "apksigner not found"; exit 1; }
-          "$APKSIGNER" verify --verbose app/build/outputs/apk/release/*.apk
+          set -euo pipefail
 
-      - name: Rename release APK
+          APKSIGNER=$(ls -1d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1)
+          AAPT=$(ls -1d "$ANDROID_HOME"/build-tools/*/aapt 2>/dev/null | sort -V | tail -n 1)
+          test -n "$APKSIGNER" || { echo "apksigner not found"; exit 1; }
+          test -n "$AAPT" || { echo "aapt not found"; exit 1; }
+
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$APK" || { echo "Release APK not found"; exit 1; }
+
+          "$APKSIGNER" verify --verbose "$APK"
+          BADGING=$("$AAPT" dump badging "$APK")
+          echo "$BADGING" | grep -F "package: name='com.mesterumailer.smsmanager'" >/dev/null || {
+            echo "APK package name mismatch"
+            exit 1
+          }
+          EXPECTED_VERSION="versionName='${{ steps.release_metadata.outputs.version_name }}'"
+          echo "$BADGING" | grep -F "$EXPECTED_VERSION" >/dev/null || {
+            echo "APK versionName does not match release metadata"
+            exit 1
+          }
+
+          SHA256=$(sha256sum "$APK" | awk '{print $1}')
+          echo "apk_sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
+
+      - name: Package release APK and checksum
+        id: package
+        env:
+          VERSION_NAME: ${{ steps.release_metadata.outputs.version_name }}
         run: |
-          cp app/build/outputs/apk/release/*.apk "app/build/outputs/apk/release/SmsManager-${GITHUB_RUN_NUMBER}.apk"
+          set -euo pipefail
+          APK="${{ steps.verify_apk.outputs.apk_path }}"
+          OUTPUT="app/build/outputs/apk/release/SmsManager-$VERSION_NAME.apk"
+          cp "$APK" "$OUTPUT"
+          sha256sum "$OUTPUT" > "$OUTPUT.sha256"
+
+          cat > "app/build/outputs/apk/release/RELEASE_MANIFEST.txt" <<EOF
+                    Release: $VERSION_NAME
+                    VersionCode: ${{ steps.release_metadata.outputs.version_code }}
+                    Tag: ${{ steps.release_metadata.outputs.tag_name }}
+                    Commit: ${{ github.sha }}
+                    APK SHA-256: ${{ steps.verify_apk.outputs.apk_sha256 }}
+                    Signature: VERIFIED
+                    Source branch: release/${{ steps.release_metadata.outputs.tag_name }}
+          EOF
+
+          echo "apk_path=$OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "checksum_path=$OUTPUT.sha256" >> "$GITHUB_OUTPUT"
+          echo "manifest_path=app/build/outputs/apk/release/RELEASE_MANIFEST.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Publish official GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.release_metadata.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: SMS Manager ${{ steps.release_metadata.outputs.tag_name }}
+          body_path: CHANGELOG.md
+          files: |
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.manifest_path }}
+          draft: false
+          prerelease: false
+          make_latest: true
 
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: sms-manager-release-apk
-          path: app/build/outputs/apk/release/SmsManager-${{ github.run_number }}.apk
+          name: sms-manager-release-${{ steps.release_metadata.outputs.tag_name }}-${{ github.sha }}
+          path: |
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.manifest_path }}
           if-no-files-found: error
           retention-days: 90
