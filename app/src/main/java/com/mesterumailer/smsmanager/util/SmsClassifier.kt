@@ -23,8 +23,8 @@ class SmsClassifier(private val rules: List<FilterRule>) {
             val score = score(rule, normalizedSender, normalizedBody, otp != null)
             if (score <= 0) null else rule to score
         }.sortedWith(
-            compareByDescending<Pair<FilterRule, Int>> { it.second }
-                .thenByDescending { it.first.priority }
+            compareByDescending<Pair<FilterRule, Int>> { it.first.priority }
+                .thenByDescending { it.second }
         )
 
         val winningRule = candidates.firstOrNull()?.first
