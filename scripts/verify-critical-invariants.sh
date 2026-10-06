@@ -15,6 +15,8 @@ if grep -F 'hasReliableTextSender' "$CLASSIFIER" >/dev/null; then
   exit 1
 fi
 
+grep -F 'val otp = extractOtp(normalizedBody)' "$CLASSIFIER" >/dev/null
+grep -F 'private val otpContextRegex' "$CLASSIFIER" >/dev/null
 grep -F 'if (message.analysis.categoryId == SmsCategory.OTP.id)' "$MAIN_ACTIVITY" >/dev/null
 grep -F 'analysis.otpCode.takeIf { categoryId == SmsCategory.OTP.id }' "$RECEIVER" >/dev/null
 
