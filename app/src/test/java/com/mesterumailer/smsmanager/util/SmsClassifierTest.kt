@@ -135,6 +135,13 @@ class SmsClassifierTest {
     }
 
     @Test
+    fun extractsOtpAfterPersianConfirmationCueWithoutColon() {
+        val result = classifier.analyze("سرویس", "کد تایید شما 483921")
+
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
     fun extractsOtpAfterPersianPasswordCueWithPersianDigits() {
         val result = classifier.analyze("سرویس", "رمز پویا: ۷۳۱۴")
 
