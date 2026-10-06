@@ -9,8 +9,8 @@ class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpContextRegex = Regex("(?i)(?<![a-z])(?:verification\\s+code|one[- ]time\\s+(?:password|code)|passcode|otp|code)(?![a-z])|کد|رمز")
     private val otpRejectedContexts = listOf(
         "مبلغ", "شماره", "پیگیری", "رهگیری", "مرجع", "شناسه", "تاریخ", "زمان",
-        "موجودی", "مانده", "حساب", "کارت", "تراکنش", "فاکتور", "قبض",
-        "amount", "tracking", "reference", "transaction", "balance", "account", "card", "invoice", "date", "time"
+        "موجودی", "مانده", "حساب", "کارت", "تراکنش", "فاکتور", "قبض", "تخفیف", "ملی",
+        "amount", "tracking", "reference", "transaction", "balance", "account", "card", "invoice", "date", "time", "discount"
     )
     private val maxOtpContextDistance = 32
 
