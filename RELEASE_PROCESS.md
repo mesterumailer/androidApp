@@ -50,7 +50,9 @@ release/vX.Y.Z
 
 باید دقیقاً با `versionName = "X.Y.Z"` در `app/build.gradle.kts` مطابقت داشته باشد.
 
-با push روی release branch، workflow زیر به‌صورت خودکار اجرا می‌شود:
+با push روی release branch، workflow عمومی `.github/workflows/android.yml` به‌صورت خودکار CI را اجرا می‌کند.
+
+برای ساخت **Release Candidate امضاشده**، workflow زیر به‌صورت دستی و با انتخاب همان `release/vX.Y.Z` branch از GitHub Actions اجرا می‌شود:
 
 `.github/workflows/android-release-candidate.yml`
 
@@ -64,6 +66,8 @@ release/vX.Y.Z
 - APK، SHA-256 و فایل `RELEASE_CANDIDATE.txt` را به‌عنوان Artifact نگه می‌دارد.
 
 این workflow **هیچ GitHub Release رسمی ایجاد نمی‌کند**.
+
+دستی بودن این مرحله عمدی است: Release Candidate با release keystore ساخته می‌شود و باید یک گیت انسانی برای Device Test قبل از انتشار رسمی وجود داشته باشد.
 
 ## 3. Device Test Gate
 
