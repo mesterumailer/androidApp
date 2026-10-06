@@ -1,9 +1,7 @@
 name: Android Release Candidate
 
 on:
-  push:
-    branches:
-      - 'release/v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
