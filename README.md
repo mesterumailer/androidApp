@@ -447,12 +447,32 @@ Workflow این موارد را بررسی می‌کند:
 
 ## Git workflow
 
-توسعه قابلیت‌ها روی branchهای feature انجام می‌شود و `main` برای نسخه‌های پایدار نگه داشته می‌شود.
+توسعه قابلیت‌ها روی branchهای feature انجام می‌شود و انتشار مشتری فقط از مسیر release انجام می‌شود.
 
-Branch فعلی:
+چرخه رسمی:
 
 ```text
-feature/phase-1-sms-inbox
+feature/<work>
+    |
+    v
+CI + regression tests
+    |
+    v
+release/vX.Y.Z
+    |
+    +--> signed Release Candidate
+    |      |
+    |      +--> device test
+    |
+    v
+tag vX.Y.Z
+    |
+    v
+official GitHub Release
 ```
 
-برای وضعیت دقیق branch/PR، Known Issueها و دستورالعمل ادامه توسعه به [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) مراجعه کنید.
+**مهم:** هیچ APK مشتری از branchهای feature یا debug artifact تحویل داده نمی‌شود. Release Candidate باید روی همان commitی تست شود که بعداً tag می‌گیرد؛ هر تغییر بعد از تست یعنی candidate جدید و تست مجدد.
+
+راهنمای کامل این فرایند در [RELEASE_PROCESS.md](RELEASE_PROCESS.md) است.
+
+برای وضعیت دقیق معماری، baseline، feedback و ادامه توسعه به [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) مراجعه کنید.
