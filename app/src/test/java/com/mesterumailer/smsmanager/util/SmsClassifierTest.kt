@@ -1,5 +1,6 @@
 package com.mesterumailer.smsmanager.util
 
+import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import org.junit.Assert.assertEquals
@@ -35,6 +36,70 @@ class SmsClassifierTest {
     )
 
     private val classifier = SmsClassifier(rules)
+
+    @Test
+    fun higherPriorityRuleWinsWhenBothRulesMatch() {
+        val transactionRule = FilterRule(
+            categoryId = SmsCategory.TRANSACTION.id,
+            displayName = "تراکنش مالی",
+            anyKeywords = listOf("خرید", "مبلغ", "تراکنش"),
+            minimumAnyMatches = 1,
+            priority = 30
+        )
+        val otpRule = FilterRule(
+            categoryId = SmsCategory.OTP.id,
+            displayName = "کد تأیید",
+            anyKeywords = listOf("کد تایید"),
+            minimumAnyMatches = 1,
+            priority = 50
+        )
+
+        val result = SmsClassifier(listOf(transactionRule, otpRule))
+            .analyze("بانک ملت", "خرید به مبلغ 100000 انجام شد. کد تایید: 483921")
+
+        assertEquals(SmsCategory.OTP, result.category)
+    }
+
+    @Test
+    fun bankOtpMessageUsesOtpCategoryEvenWhenTransactionKeywordsArePresent() {
+        val result = SmsClassifier(FilterRuleRepository.defaultRules())
+            .analyze(
+                "بانک ملت",
+                "خرید به مبلغ 100000 تومان انجام شد. کد تایید: 483921"
+            )
+
+        assertEquals(SmsCategory.OTP, result.category)
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
+    fun bankDynamicPasswordMessageUsesOtpCategory() {
+        val result = SmsClassifier(FilterRuleRepository.defaultRules())
+            .analyze(
+                "بانک ملت",
+                "برای تایید تراکنش، رمز: 7314 را وارد کنید."
+            )
+
+        assertEquals(SmsCategory.OTP, result.category)
+        assertEquals("7314", result.otpCode)
+    }
+
+    @Test
+    fun otpContextCanMatchEvenWithoutAnExplicitOtpKeyword() {
+        val otpRule = FilterRule(
+            categoryId = SmsCategory.OTP.id,
+            displayName = "کد تأیید",
+            anyKeywords = listOf("کد تایید"),
+            minimumAnyMatches = 1,
+            priority = 50
+        )
+
+        val result = SmsClassifier(listOf(otpRule))
+            .analyze("بانک ملت", "رمز: 7314")
+
+        assertEquals(SmsCategory.OTP, result.category)
+        assertEquals("7314", result.otpCode)
+    }
 
     @Test
     fun classifiesPersianTransactionWithoutAmountExtraction() {
