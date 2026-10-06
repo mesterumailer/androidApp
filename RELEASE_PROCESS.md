@@ -52,9 +52,9 @@ release/vX.Y.Z
 
 با push روی release branch، workflow عمومی `.github/workflows/android.yml` به‌صورت خودکار CI را اجرا می‌کند.
 
-برای ساخت **Release Candidate امضاشده**، workflow زیر به‌صورت دستی و با انتخاب همان `release/vX.Y.Z` branch از GitHub Actions اجرا می‌شود:
+برای ساخت **Release Candidate امضاشده**، workflow رسمی Release را به‌صورت دستی و با انتخاب همان `release/vX.Y.Z` branch از GitHub Actions اجرا می‌کنیم:
 
-`.github/workflows/android-release-candidate.yml`
+`.github/workflows/android-release.yml`
 
 این workflow:
 
@@ -65,7 +65,7 @@ release/vX.Y.Z
 - امضای APK را با `apksigner` بررسی می‌کند.
 - APK، SHA-256 و فایل `RELEASE_CANDIDATE.txt` را به‌عنوان Artifact نگه می‌دارد.
 
-این workflow **هیچ GitHub Release رسمی ایجاد نمی‌کند**.
+در حالت `workflow_dispatch` این workflow فقط Candidate می‌سازد و **هیچ GitHub Release رسمی ایجاد نمی‌کند**.
 
 دستی بودن این مرحله عمدی است: Release Candidate با release keystore ساخته می‌شود و باید یک گیت انسانی برای Device Test قبل از انتشار رسمی وجود داشته باشد.
 
@@ -91,7 +91,7 @@ APK تست‌شده باید از همان candidate استفاده شود.
 vX.Y.Z
 ```
 
-workflow رسمی:
+پس از تأیید Device Test، tag دقیقاً روی HEAD همان release branch ساخته می‌شود و همان workflow:
 
 `.github/workflows/android-release.yml`
 
