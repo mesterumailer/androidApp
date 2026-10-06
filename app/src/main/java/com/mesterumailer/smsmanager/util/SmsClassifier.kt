@@ -17,9 +17,10 @@ class SmsClassifier(private val rules: List<FilterRule>) {
     fun analyze(address: String, body: String): SmsAnalysis {
         val normalizedBody = normalize(body)
         val normalizedSender = normalize(address)
+        val otp = extractOtp(normalizedBody)
 
         val candidates = rules.mapNotNull { rule ->
-            val score = score(rule, normalizedSender, normalizedBody)
+            val score = score(rule, normalizedSender, normalizedBody, otp != null)
             if (score <= 0) null else rule to score
         }.sortedWith(
             compareByDescending<Pair<FilterRule, Int>> { it.second }
@@ -32,7 +33,6 @@ class SmsClassifier(private val rules: List<FilterRule>) {
 
         // Amount extraction is intentionally disabled for now to keep Inbox
         // loading/filtering focused on the active classification features.
-        val otp = extractOtp(normalizedBody)
         val confidence = candidates.firstOrNull()?.second?.let {
             (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
         } ?: 0f
@@ -66,11 +66,17 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         return null
     }
 
-    private fun score(rule: FilterRule, sender: String, body: String): Int {
+    private fun score(
+        rule: FilterRule,
+        sender: String,
+        body: String,
+        otpContextDetected: Boolean
+    ): Int {
         if (rule.excludedKeywords.any { normalize(it) in body }) return 0
 
         val anyHits = rule.anyKeywords.count { normalize(it) in body }
-        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches) return 0
+        val otpContextMatch = rule.categoryId == SmsCategory.OTP.id && otpContextDetected
+        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches && !otpContextMatch) return 0
 
         val requiredMisses = rule.requiredKeywords.count { normalize(it) !in body }
         if (requiredMisses > 0) return 0
@@ -78,8 +84,9 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         val senderHits = rule.senderContains.count { normalize(it) in sender }
         if (rule.senderContains.isNotEmpty() && senderHits == 0) return 0
 
-        val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3)
-        return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
+        val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3) +
+            if (otpContextMatch) 8 else 0
+        return if (score > 0) score else 0
     }
 
     private fun normalize(value: String): String = normalizeDigits(value)
