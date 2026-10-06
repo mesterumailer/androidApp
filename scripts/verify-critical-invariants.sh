@@ -17,6 +17,8 @@ fi
 
 grep -F 'val otp = extractOtp(normalizedBody)' "$CLASSIFIER" >/dev/null
 grep -F 'private val otpContextRegex' "$CLASSIFIER" >/dev/null
+grep -F 'compareByDescending<Pair<FilterRule, Int>> { it.first.priority }' "$CLASSIFIER" >/dev/null
+grep -F 'senderContains = emptyList()' "app/src/main/java/com/mesterumailer/smsmanager/data/FilterRuleRepository.kt" >/dev/null
 grep -F 'if (message.analysis.categoryId == SmsCategory.OTP.id)' "$MAIN_ACTIVITY" >/dev/null
 grep -F 'analysis.otpCode.takeIf { categoryId == SmsCategory.OTP.id }' "$RECEIVER" >/dev/null
 

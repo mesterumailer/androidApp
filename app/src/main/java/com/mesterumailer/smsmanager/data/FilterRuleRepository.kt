@@ -11,11 +11,15 @@ class FilterRuleRepository(context: Context) {
         val stored = preferences.getString(KEY_RULES, null) ?: return defaultRules()
         return runCatching {
             val array = JSONArray(stored)
-            buildList(array.length()) {
+            val loaded = buildList(array.length()) {
                 for (i in 0 until array.length()) {
                     add(FilterRule.fromJson(array.getJSONObject(i)))
                 }
             }.filter { it.categoryId.isNotBlank() && it.displayName.isNotBlank() }
+
+            val migrated = migrateLegacyOtpRule(loaded)
+            if (migrated != loaded) saveRules(migrated)
+            migrated
         }.getOrElse { defaultRules() }
     }
 
@@ -49,6 +53,18 @@ class FilterRuleRepository(context: Context) {
 
     fun resetToDefaults() = saveRules(defaultRules())
 
+    private fun migrateLegacyOtpRule(rules: List<FilterRule>): List<FilterRule> =
+        rules.map { rule ->
+            if (
+                rule.categoryId == "otp" &&
+                rule.senderContains == listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید")
+            ) {
+                rule.copy(senderContains = emptyList())
+            } else {
+                rule
+            }
+        }
+
     companion object {
         private const val PREFERENCES_NAME = "sms_manager_settings"
         private const val KEY_RULES = "filter_rules"
@@ -57,7 +73,9 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "otp",
                 displayName = "کد تأیید",
-                senderContains = listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید"),
+                // OTP messages can legitimately come from banks and other senders;
+                // the OTP context in the body is the primary signal.
+                senderContains = emptyList(),
                 anyKeywords = listOf(
                     "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود", "کد فعالسازی",
                     "verification code", "one-time", "otp", "code"
