@@ -126,6 +126,83 @@ class SmsClassifierTest {
         assertEquals(SmsCategory.SERVICE, result.category)
     }
 
+
+    @Test
+    fun extractsOtpAfterPersianConfirmationCue() {
+        val result = classifier.analyze("سرویس", "کد تایید: 483921")
+
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
+    fun extractsOtpAfterPersianPasswordCueWithPersianDigits() {
+        val result = classifier.analyze("سرویس", "رمز پویا: ۷۳۱۴")
+
+        assertEquals("7314", result.otpCode)
+    }
+
+    @Test
+    fun extractsOtpAfterEnglishCodeCue() {
+        val result = classifier.analyze("Service", "Verification Code: 483921")
+
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
+    fun extractsOtpAfterEnglishOtpCue() {
+        val result = classifier.analyze("Service", "OTP 483921")
+
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
+    fun doesNotExtractUnrelatedNumberWithoutOtpContext() {
+        val result = classifier.analyze("Service", "شماره پیگیری: 78123456")
+
+        assertNull(result.otpCode)
+    }
+
+    @Test
+    fun doesNotTreatGenericColonAsOtpContext() {
+        val result = classifier.analyze("Service", "مبلغ: 450000")
+
+        assertNull(result.otpCode)
+    }
+
+    @Test
+    fun rejectsTrackingCodeEvenThoughItFollowsTheWordCode() {
+        val result = classifier.analyze("Service", "کد رهگیری: 78123456")
+
+        assertNull(result.otpCode)
+    }
+
+    @Test
+    fun rejectsDiscountCodeFromOtpExtraction() {
+        val result = classifier.analyze("Service", "کد تخفیف: 483921")
+
+        assertNull(result.otpCode)
+    }
+
+    @Test
+    fun skipsRejectedNumberAndFindsNearbyOtpCode() {
+        val result = classifier.analyze(
+            "Service",
+            "کد رهگیری: 78123456، سپس کد تایید: 483921"
+        )
+
+        assertEquals("483921", result.otpCode)
+    }
+
+    @Test
+    fun doesNotExtractNumberWhenOtpCueIsTooFarAway() {
+        val result = classifier.analyze(
+            "Service",
+            "کد تایید برای شما صادر شد و این متن عمداً بیشتر از فاصله مجاز ادامه پیدا می‌کند تا عدد در انتها قرار بگیرد 483921"
+        )
+
+        assertNull(result.otpCode)
+    }
+
     @Test
     fun classifiesPromotionFromUserRule() {
         val result = classifier.analyze("90001", "فقط امروز 50% تخفیف ویژه")
