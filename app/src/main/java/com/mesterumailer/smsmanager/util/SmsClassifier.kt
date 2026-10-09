@@ -74,9 +74,20 @@ class SmsClassifier(private val rules: List<FilterRule>) {
     ): Int {
         if (rule.excludedKeywords.any { normalize(it) in body }) return 0
 
-        val anyHits = rule.anyKeywords.count { normalize(it) in body }
+        val bodyAnyHits = rule.anyKeywords.count { normalize(it) in body }
+        val anyHits = rule.anyKeywords.count { keyword ->
+            val normalizedKeyword = normalize(keyword)
+            normalizedKeyword in body || normalizedKeyword in sender
+        }
         val otpContextMatch = rule.categoryId == SmsCategory.OTP.id && otpContextDetected
-        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches && !otpContextMatch) return 0
+        // OTP category must be supported by the message body/context, not only
+        // by a sender name that happens to contain a word like "code".
+        val otpBodyMatch = rule.categoryId == SmsCategory.OTP.id &&
+            bodyAnyHits >= rule.minimumAnyMatches
+        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches &&
+            !otpContextMatch && !otpBodyMatch
+        ) return 0
+        if (rule.categoryId == SmsCategory.OTP.id && !otpContextMatch && !otpBodyMatch) return 0
 
         val requiredMisses = rule.requiredKeywords.count { normalize(it) !in body }
         if (requiredMisses > 0) return 0
