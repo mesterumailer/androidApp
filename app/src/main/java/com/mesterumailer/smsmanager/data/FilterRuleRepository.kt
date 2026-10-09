@@ -17,7 +17,7 @@ class FilterRuleRepository(context: Context) {
                 }
             }.filter { it.categoryId.isNotBlank() && it.displayName.isNotBlank() }
 
-            val migrated = migrateLegacyOtpRule(loaded)
+            val migrated = migrateLegacyDefaultSenderFilters(loaded)
             if (migrated != loaded) saveRules(migrated)
             migrated
         }.getOrElse { defaultRules() }
@@ -53,21 +53,30 @@ class FilterRuleRepository(context: Context) {
 
     fun resetToDefaults() = saveRules(defaultRules())
 
-    private fun migrateLegacyOtpRule(rules: List<FilterRule>): List<FilterRule> =
-        rules.map { rule ->
-            if (
-                rule.categoryId == "otp" &&
-                rule.senderContains == listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید")
-            ) {
-                rule.copy(senderContains = emptyList())
-            } else {
-                rule
-            }
-        }
-
     companion object {
         private const val PREFERENCES_NAME = "sms_manager_settings"
         private const val KEY_RULES = "filter_rules"
+
+        /**
+         * Clears only the exact sender lists shipped in older built-in defaults.
+         * User-customized sender filters are preserved.
+         */
+        internal fun migrateLegacyDefaultSenderFilters(rules: List<FilterRule>): List<FilterRule> {
+            val legacyDefaults = mapOf(
+                "otp" to listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید"),
+                "promotion" to listOf("ads", "advert", "marketing", "promo"),
+                "service" to listOf("service", "support", "notify", "سرویس"),
+                "delivery" to listOf("post", "delivery", "courier", "پست", "ارسال", "مرسوله"),
+                "transaction" to listOf("bank", "بانک", "shaparak", "payment", "card")
+            )
+            return rules.map { rule ->
+                if (legacyDefaults[rule.categoryId] == rule.senderContains) {
+                    rule.copy(senderContains = emptyList())
+                } else {
+                    rule
+                }
+            }
+        }
 
         fun defaultRules(): List<FilterRule> = listOf(
             FilterRule(
@@ -87,7 +96,7 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "promotion",
                 displayName = "تبلیغاتی",
-                senderContains = listOf("ads", "advert", "marketing", "promo"),
+                senderContains = emptyList(),
                 anyKeywords = listOf(
                     "تخفیف", "حراج", "پیشنهاد ویژه", "کد تخفیف", "فروش ویژه", "جشنواره",
                     "discount", "sale", "offer", "promo", "promotion", "coupon", "%"
@@ -99,7 +108,7 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "service",
                 displayName = "خدمات",
-                senderContains = listOf("service", "support", "notify", "سرویس"),
+                senderContains = emptyList(),
                 anyKeywords = listOf(
                     "فعال سازی", "فعالسازی", "غیرفعال سازی", "غیرفعالسازی", "اشتراک", "تمدید",
                     "قبض", "یادآوری", "اعلان", "درخواست", "خدمات", "service", "subscription", "renewal", "support", "notification"
@@ -111,7 +120,7 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "delivery",
                 displayName = "ارسال و تحویل",
-                senderContains = listOf("post", "delivery", "courier", "پست", "ارسال", "مرسوله"),
+                senderContains = emptyList(),
                 anyKeywords = listOf(
                     "مرسوله", "تحویل", "رهگیری", "پیگیری مرسوله", "کد رهگیری", "ارسال شد",
                     "پیک", "delivery", "tracking", "shipment", "courier"
@@ -122,7 +131,7 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "transaction",
                 displayName = "تراکنش مالی",
-                senderContains = listOf("bank", "بانک", "shaparak", "payment", "card"),
+                senderContains = emptyList(),
                 anyKeywords = listOf(
                     "تراکنش", "خرید", "پرداخت", "برداشت", "واریز", "انتقال", "کارت به کارت",
                     "موجودی", "مانده", "شماره پیگیری", "شماره مرجع", "بانک", "شاپرک",
