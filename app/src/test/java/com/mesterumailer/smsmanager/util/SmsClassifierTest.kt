@@ -5,6 +5,7 @@ import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SmsClassifierTest {
@@ -99,6 +100,59 @@ class SmsClassifierTest {
 
         assertEquals(SmsCategory.OTP, result.category)
         assertEquals("7314", result.otpCode)
+    }
+
+    @Test
+    fun suggestedKeywordsCanMatchSenderName() {
+        val senderKeywordRule = FilterRule(
+            categoryId = SmsCategory.DELIVERY.id,
+            displayName = "ارسال و تحویل",
+            anyKeywords = listOf("courier"),
+            minimumAnyMatches = 1,
+            priority = 35
+        )
+
+        val result = SmsClassifier(listOf(senderKeywordRule))
+            .analyze("Courier Services", "سفارش شما ثبت شد")
+
+        assertEquals(SmsCategory.DELIVERY, result.category)
+    }
+
+    @Test
+    fun builtInDefaultRulesHaveNoSenderContainsConstraints() {
+        assertTrue(FilterRuleRepository.defaultRules().all { it.senderContains.isEmpty() })
+    }
+
+    @Test
+    fun migratesOnlyLegacyDefaultSenderListsAndPreservesCustomizedFilters() {
+        val legacyTransaction = FilterRule(
+            categoryId = "transaction",
+            displayName = "تراکنش مالی",
+            senderContains = listOf("bank", "بانک", "shaparak", "payment", "card"),
+            anyKeywords = listOf("خرید")
+        )
+        val customized = FilterRule(
+            categoryId = "custom_bank",
+            displayName = "بانک دلخواه",
+            senderContains = listOf("TrustedSender"),
+            anyKeywords = listOf("خرید")
+        )
+
+        val migrated = FilterRuleRepository.migrateLegacyDefaultSenderFilters(
+            listOf(legacyTransaction, customized)
+        )
+
+        assertTrue(migrated[0].senderContains.isEmpty())
+        assertEquals(listOf("TrustedSender"), migrated[1].senderContains)
+    }
+
+    @Test
+    fun otpSenderNameAloneDoesNotMakeOrdinaryMessageAnOtp() {
+        val result = SmsClassifier(FilterRuleRepository.defaultRules())
+            .analyze("Code Service", "حساب شما به‌روزرسانی شد")
+
+        assertTrue(result.category != SmsCategory.OTP)
+        assertNull(result.otpCode)
     }
 
     @Test
