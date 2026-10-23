@@ -142,7 +142,7 @@ object SmsNotificationManager {
             )
 
             val notificationText = otpCode?.let { "کد تأیید: $it" } ?: preview(body)
-            val expandedText = otpCode?.let { "کد تأیید: $it\\n\\n$body" } ?: body
+            val expandedText = otpCode?.let { "کد تأیید: $it\n\n$body" } ?: body
 
             val builder = NotificationCompat.Builder(context, targetChannelId)
                 .setSmallIcon(android.R.drawable.ic_dialog_email)
