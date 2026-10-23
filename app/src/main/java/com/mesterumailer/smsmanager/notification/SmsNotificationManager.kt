@@ -10,12 +10,21 @@ import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.mesterumailer.smsmanager.MainActivity
 
 object SmsNotificationManager {
+    enum class PostResult {
+        POSTED,
+        POST_PERMISSION_DENIED,
+        APP_NOTIFICATIONS_DISABLED,
+        CHANNEL_DISABLED,
+        POST_FAILED
+    }
+
     const val EXTRA_ADDRESS = "sms_notification_address"
     const val EXTRA_BODY = "sms_notification_body"
     const val EXTRA_TIMESTAMP = "sms_notification_timestamp"
@@ -89,54 +98,72 @@ object SmsNotificationManager {
         timestamp: Long,
         soundUri: Uri?,
         otpCode: String? = null
-    ) {
+    ): PostResult {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) return PostResult.POST_PERMISSION_DENIED
 
-        ensureChannel(context, categoryId, categoryLabel, soundUri)
-        val targetChannelId = channelId(categoryId, soundUri)
-
-        val notificationId = (address + "|" + timestamp + "|" + body).hashCode()
-        val contentIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(EXTRA_ADDRESS, address)
-            putExtra(EXTRA_BODY, body)
-            putExtra(EXTRA_TIMESTAMP, timestamp)
-            putExtra(EXTRA_CATEGORY_LABEL, categoryLabel)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            notificationId,
-            contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notificationText = otpCode?.let { "کد تأیید: $it" } ?: preview(body)
-        val expandedText = otpCode?.let { "کد تأیید: $it\n\n$body" } ?: body
-
-        val builder = NotificationCompat.Builder(context, targetChannelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
-            .setContentTitle(address.ifBlank { "پیامک جدید" })
-            .setContentText(notificationText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(false)
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            builder.setVibrate(null)
-            builder.setSound(soundUri)
+        val notificationManager = NotificationManagerCompat.from(context)
+        if (!notificationManager.areNotificationsEnabled()) {
+            return PostResult.APP_NOTIFICATIONS_DISABLED
         }
 
-        runCatching {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+        return try {
+            ensureChannel(context, categoryId, categoryLabel, soundUri)
+            val targetChannelId = channelId(categoryId, soundUri)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val systemManager = context.getSystemService(NotificationManager::class.java)
+                if (systemManager?.getNotificationChannel(targetChannelId)?.importance ==
+                    NotificationManager.IMPORTANCE_NONE
+                ) {
+                    return PostResult.CHANNEL_DISABLED
+                }
+            }
+
+            val notificationId = (address + "|" + timestamp + "|" + body).hashCode()
+            val contentIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_ADDRESS, address)
+                putExtra(EXTRA_BODY, body)
+                putExtra(EXTRA_TIMESTAMP, timestamp)
+                putExtra(EXTRA_CATEGORY_LABEL, categoryLabel)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                notificationId,
+                contentIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notificationText = otpCode?.let { "کد تأیید: $it" } ?: preview(body)
+            val expandedText = otpCode?.let { "کد تأیید: $it\\n\\n$body" } ?: body
+
+            val builder = NotificationCompat.Builder(context, targetChannelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_email)
+                .setContentTitle(address.ifBlank { "پیامک جدید" })
+                .setContentText(notificationText)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setOnlyAlertOnce(false)
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                builder.setVibrate(null)
+                builder.setSound(soundUri)
+            }
+
+            notificationManager.notify(notificationId, builder.build())
+            PostResult.POSTED
+        } catch (error: Exception) {
+            Log.e("SmsNotificationManager", "Unable to post incoming SMS notification", error)
+            PostResult.POST_FAILED
         }
     }
 
