@@ -12,7 +12,7 @@ import android.provider.Telephony
 import android.util.Log
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
-import com.mesterumailer.smsmanager.data.SmsNotificationDiagnosticsRepository
+import com.mesterumailer.smsmanager.data.SmsReceiverDiagnosticsRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
 import com.mesterumailer.smsmanager.util.SmsNotificationPolicy
 import com.mesterumailer.smsmanager.data.SmsOtpSettingsRepository
@@ -39,7 +39,7 @@ class SmsReceiver : BroadcastReceiver() {
             } catch (error: Exception) {
                 Log.e(TAG, "Background SMS processing failed", error)
                 runCatching {
-                    SmsNotificationDiagnosticsRepository(appContext).record(
+                    SmsReceiverDiagnosticsRepository(appContext).record(
                         SmsReceiverDiagnosticStatus.PROCESSING_ERROR,
                         detailCode = error.javaClass.simpleName
                     )
@@ -51,7 +51,7 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun processIncomingSms(context: Context, intent: Intent) {
-        val diagnostics = SmsNotificationDiagnosticsRepository(context)
+        val diagnostics = SmsReceiverDiagnosticsRepository(context)
         diagnostics.record(SmsReceiverDiagnosticStatus.RECEIVER_STARTED)
 
         val incoming = Telephony.Sms.Intents.getMessagesFromIntent(intent)
