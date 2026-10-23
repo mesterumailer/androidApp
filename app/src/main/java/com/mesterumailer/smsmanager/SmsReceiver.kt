@@ -14,7 +14,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationDiagnosticsRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
-import com.mesterumailer.smsmanager.data.SmsNotificationPolicy
+import com.mesterumailer.smsmanager.util.SmsNotificationPolicy
 import com.mesterumailer.smsmanager.data.SmsOtpSettingsRepository
 import com.mesterumailer.smsmanager.data.SmsReceiverDiagnosticStatus
 import com.mesterumailer.smsmanager.model.SmsCategory
