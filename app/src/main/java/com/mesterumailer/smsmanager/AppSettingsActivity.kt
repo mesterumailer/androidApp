@@ -732,25 +732,25 @@ class AppSettingsActivity : BaseActivity() {
                 append("آخرین نتیجه: ")
                 append(result.status.label)
                 if (!category.isNullOrBlank()) {
-                    append("\\nدسته: ")
+                    append("\nدسته: ")
                     append(category)
                 }
-                append("\\nزمان: ")
+                append("\nزمان: ")
                 append(timestamp)
                 if (result.status == SmsReceiverDiagnosticStatus.PROCESSING_ERROR &&
                     !result.detailCode.isNullOrBlank()
                 ) {
-                    append("\\nکد خطا: ")
+                    append("\nکد خطا: ")
                     append(result.detailCode)
                 }
                 if (result.status == SmsReceiverDiagnosticStatus.CATEGORY_NOTIFICATIONS_DISABLED) {
-                    append("\\nبرای همین دسته، اعلان را در پیامک‌یار روشن کنید.")
+                    append("\nبرای همین دسته، اعلان را در پیامک‌یار روشن کنید.")
                 }
                 if (result.status == SmsReceiverDiagnosticStatus.APP_NOTIFICATIONS_DISABLED ||
                     result.status == SmsReceiverDiagnosticStatus.POST_PERMISSION_DENIED ||
                     result.status == SmsReceiverDiagnosticStatus.CHANNEL_DISABLED
                 ) {
-                    append("\\nمجوز یا تنظیمات اعلان Android را بررسی کنید.")
+                    append("\nمجوز یا تنظیمات اعلان Android را بررسی کنید.")
                 }
             }
         }
