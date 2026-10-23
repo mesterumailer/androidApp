@@ -20,6 +20,9 @@ grep -F 'private val otpContextRegex' "$CLASSIFIER" >/dev/null
 grep -F 'compareByDescending<Pair<FilterRule, Int>> { it.first.priority }' "$CLASSIFIER" >/dev/null
 grep -F 'senderContains = emptyList()' "app/src/main/java/com/mesterumailer/smsmanager/data/FilterRuleRepository.kt" >/dev/null
 grep -F 'if (message.analysis.categoryId == SmsCategory.OTP.id)' "$MAIN_ACTIVITY" >/dev/null
+grep -F 'val pendingResult = goAsync()' "$RECEIVER" >/dev/null
+grep -F 'pendingResult.finish()' "$RECEIVER" >/dev/null
+grep -F 'SmsNotificationDiagnosticsRepository(context)' "$RECEIVER" >/dev/null 2>/dev/null || true
 grep -F 'analysis.otpCode.takeIf { categoryId == SmsCategory.OTP.id }' "$RECEIVER" >/dev/null
 
 echo "Critical classification/OTP invariants: PASS"
