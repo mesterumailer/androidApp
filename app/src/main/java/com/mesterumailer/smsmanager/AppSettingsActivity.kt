@@ -25,6 +25,8 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationManagerCompat
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
+import com.mesterumailer.smsmanager.data.SmsReceiverDiagnosticsRepository
+import com.mesterumailer.smsmanager.data.SmsReceiverDiagnosticStatus
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
 import com.mesterumailer.smsmanager.data.AppTheme
 import com.mesterumailer.smsmanager.data.InboxReadMode
@@ -703,9 +705,85 @@ class AppSettingsActivity : BaseActivity() {
                 setTextColor(if (permissionGranted) accent else secondary)
                 setPadding(0, 0, 0, dp(4))
             })
+            addView(buildReceiverDiagnosticsView(), LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(8)
+                bottomMargin = dp(8)
+            })
+
             definitions.forEachIndexed { index, (id, label) ->
                 addView(buildNotificationCategoryRow(id, label, index))
             }
+        }
+    }
+
+    private fun buildReceiverDiagnosticsView(): View {
+        val result = SmsReceiverDiagnosticsRepository(this).getLastResult()
+        val labels = FilterRuleRepository(this).loadRules().associate { it.categoryId to it.displayName }
+        val statusText = if (result == null) {
+            "هنوز نتیجه‌ای از دریافت پیامک ثبت نشده است. پس از بستن معمولی برنامه، یک پیامک واقعی دریافت کنید و سپس این بخش را دوباره بررسی کنید."
+        } else {
+            val category = result.categoryId?.let { labels[it] ?: SmsCategory.fromId(it).label }
+            val timestamp = DateFormat.getDateTimeInstance(
+                DateFormat.SHORT,
+                DateFormat.SHORT,
+                Locale.getDefault()
+            ).format(Date(result.timestampMillis))
+            buildString {
+                append("آخرین نتیجه: ")
+                append(result.status.label)
+                if (!category.isNullOrBlank()) {
+                    append("\nدسته: ")
+                    append(category)
+                }
+                append("\nزمان: ")
+                append(timestamp)
+                if (result.status == SmsReceiverDiagnosticStatus.PROCESSING_ERROR &&
+                    !result.detailCode.isNullOrBlank()
+                ) {
+                    append("\nکد خطا: ")
+                    append(result.detailCode)
+                }
+                if (result.status == SmsReceiverDiagnosticStatus.CATEGORY_NOTIFICATIONS_DISABLED) {
+                    append("\nبرای همین دسته، اعلان را در پیامک‌یار روشن کنید.")
+                }
+                if (result.status == SmsReceiverDiagnosticStatus.APP_NOTIFICATIONS_DISABLED ||
+                    result.status == SmsReceiverDiagnosticStatus.POST_PERMISSION_DENIED ||
+                    result.status == SmsReceiverDiagnosticStatus.CHANNEL_DISABLED
+                ) {
+                    append("\nمجوز یا تنظیمات اعلان Android را بررسی کنید.")
+                }
+            }
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rippleSurfaceBackground(getColor(R.color.soft_surface), 14)
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "عیب‌یابی اعلان در پس‌زمینه"
+                textSize = 13f
+                setTextColor(primary)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = statusText
+                textSize = 12f
+                setTextColor(secondary)
+                setLineSpacing(0f, 1.12f)
+                setPadding(0, dp(5), 0, dp(9))
+            })
+            addView(TextView(this@AppSettingsActivity).apply {
+                text = "باز کردن تنظیمات اعلان Android"
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setTextColor(accent)
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                background = rippleSurfaceBackground(getColor(R.color.accent_surface), 12)
+                setPadding(dp(10), dp(9), dp(10), dp(9))
+                contentDescription = "باز کردن تنظیمات اعلان Android"
+                setOnClickListener { openNotificationSettings() }
+            }, LinearLayout.LayoutParams(-1, dp(40)))
         }
     }
 
