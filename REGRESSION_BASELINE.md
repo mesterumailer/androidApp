@@ -25,6 +25,7 @@
 - [ ] بازگشت از override به auto classification
 - [ ] soft delete تکی و دسته‌جمعی بدون حذف SMS سیستم
 - [ ] نمایش و بازیابی پیام‌ها از سطل زباله
+- [ ] لمس نام/شمارهٔ فرستنده و باز شدن گفت‌وگوی همان شخص در SMS app پیش‌فرض
 - [ ] Reply از کارت پیام با باز شدن SMS app گوشی
 - [ ] light/dark theme
 - [ ] local persistence در SharedPreferences

@@ -816,10 +816,15 @@ class MainActivity : BaseActivity() {
             header.addView(TextView(this@MainActivity).apply {
                 text = message.address
                 textSize = 14f
-                setTextColor(primaryText)
+                setTextColor(accent)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-            })
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
+                contentDescription = "باز کردن گفت‌وگو با ${message.address}"
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { openSenderConversation(message) }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
             header.addView(TextView(this@MainActivity).apply {
                 text = label
                 textSize = 11f
@@ -1015,6 +1020,24 @@ class MainActivity : BaseActivity() {
                 }
             }
             .show()
+    }
+
+    private fun openSenderConversation(message: SmsMessage) {
+        val address = message.address.trim()
+        if (address.isBlank()) {
+            Toast.makeText(this, "شماره یا شناسهٔ فرستنده در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ACTION_VIEW opens the existing SMS conversation instead of starting a reply draft.
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.fromParts("sms", address, null)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "برنامهٔ پیامک پیش‌فرض برای نمایش گفت‌وگو در دسترس نیست.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun replyToMessage(message: SmsMessage) {
