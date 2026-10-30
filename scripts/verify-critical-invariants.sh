@@ -24,5 +24,9 @@ grep -F 'val pendingResult = goAsync()' "$RECEIVER" >/dev/null
 grep -F 'pendingResult.finish()' "$RECEIVER" >/dev/null
 grep -F 'SmsReceiverDiagnosticsRepository(context)' "$RECEIVER" >/dev/null
 grep -F 'analysis.otpCode.takeIf { categoryId == SmsCategory.OTP.id }' "$RECEIVER" >/dev/null
+grep -F 'setOnClickListener { openSenderConversation(message) }' "$MAIN_ACTIVITY" >/dev/null
+grep -F 'private fun openSenderConversation(message: SmsMessage)' "$MAIN_ACTIVITY" >/dev/null
+grep -F 'Intent(Intent.ACTION_VIEW)' "$MAIN_ACTIVITY" >/dev/null
+grep -F 'data = Uri.fromParts("sms", address, null)' "$MAIN_ACTIVITY" >/dev/null
 
-echo "Critical classification/OTP invariants: PASS"
+echo "Critical classification/OTP/conversation invariants: PASS"
