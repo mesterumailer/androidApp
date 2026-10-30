@@ -818,6 +818,11 @@ class MainActivity : BaseActivity() {
                 textSize = 14f
                 setTextColor(primaryText)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                contentDescription = "باز کردن گفت‌وگوی پیامکی با ${message.address}"
+                isFocusable = true
+                background = roundedRippleBackground(getColor(R.color.soft_surface), 8)
+                setPadding(dp(4), dp(5), dp(4), dp(5))
+                setOnClickListener { openSenderConversation(message) }
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             })
             header.addView(TextView(this@MainActivity).apply {
@@ -1013,6 +1018,27 @@ class MainActivity : BaseActivity() {
                 }
             }
             .show()
+    }
+
+    private fun openSenderConversation(message: SmsMessage) {
+        val address = message.address.trim()
+        if (address.isBlank()) {
+            Toast.makeText(this, "شماره یا شناسه فرستنده در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ACTION_VIEW with an sms: URI asks Android's default messaging app to open
+        // the conversation for this sender, without making this app the default SMS app.
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("sms:" + Uri.encode(address))
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "برنامهٔ پیامک برای باز کردن گفت‌وگو پیدا نشد.", Toast.LENGTH_SHORT).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "باز کردن گفت‌وگوی پیامکی ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun replyToMessage(message: SmsMessage) {
