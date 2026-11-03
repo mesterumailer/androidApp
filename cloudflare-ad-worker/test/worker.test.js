@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 
-function makeEnv(ad) {
+function makeEnv(ad, { failClickUpdate = false } = {}) {
   let clickCount = 0;
   const DB = {
     prepare(sql) {
@@ -16,7 +16,10 @@ function makeEnv(ad) {
               return null;
             },
             async run() {
-              if (sql.includes("UPDATE ads SET click_count")) clickCount += 1;
+              if (sql.includes("UPDATE ads SET click_count")) {
+                if (failClickUpdate) throw new Error("click_count column missing");
+                clickCount += 1;
+              }
               return { success: true };
             },
           };
@@ -83,6 +86,14 @@ test("click route redirects only to the HTTPS target and counts the click", asyn
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "https://yajingchinese.ir/");
   assert.equal(getClickCount(), 1);
+});
+
+test("redirect still succeeds when aggregate click tracking fails", async () => {
+  const { env, getClickCount } = makeEnv(sampleAd, { failClickUpdate: true });
+  const response = await worker.fetch(new Request("https://unit.test/r/yajing-chinese"), env);
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "https://yajingchinese.ir/");
+  assert.equal(getClickCount(), 0);
 });
 
 test("non-HTTPS destinations are rejected", async () => {
