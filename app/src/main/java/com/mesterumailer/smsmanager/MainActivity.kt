@@ -32,6 +32,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -74,10 +75,17 @@ class MainActivity : BaseActivity() {
     private var inboxSortOrder: InboxSortOrder = InboxSortOrder.NEWEST_FIRST
     private lateinit var sortButton: TextView
     private var selectionBar: LinearLayout? = null
+    private lateinit var adBannerContainer: FrameLayout
+    private lateinit var adBannerImage: ImageView
+    private lateinit var adBannerTitle: TextView
+    private lateinit var adBannerDescription: TextView
+    private lateinit var adBannerCta: TextView
+    private var currentHomeAd: HomeAd? = null
     private lateinit var processingOverlay: FrameLayout
     private lateinit var processingMessage: TextView
     private val processingHandler = Handler(Looper.getMainLooper())
     private val processingExecutor = Executors.newSingleThreadExecutor()
+    private val adExecutor = Executors.newSingleThreadExecutor()
     private var processingToken = 0L
     private var processingShowTask: Runnable? = null
 
@@ -90,6 +98,7 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(buildContent())
+        loadHomeAd()
         handleNotificationIntent(intent)
         if (!hasRequiredSmsPermissions()) {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
@@ -103,6 +112,11 @@ class MainActivity : BaseActivity() {
         super.onResume()
         if (!::listContainer.isInitialized) return
         if (hasRequiredSmsPermissions()) loadInbox()
+    }
+
+    override fun onDestroy() {
+        adExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun buildContent(): DrawerLayout {
@@ -132,6 +146,9 @@ class MainActivity : BaseActivity() {
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
         }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
+        main.addView(buildAdBanner(), LinearLayout.LayoutParams(-1, dp(82)).apply {
+            topMargin = dp(8)
+        })
         val contentFrame = FrameLayout(this).apply {
             addView(main, FrameLayout.LayoutParams(-1, -1))
             addView(buildProcessingOverlay(), FrameLayout.LayoutParams(-1, -1))
@@ -258,6 +275,118 @@ class MainActivity : BaseActivity() {
         appendChunk()
     }
 
+
+    private fun buildAdBanner(): FrameLayout {
+        val container = FrameLayout(this).apply {
+            visibility = View.GONE
+            background = roundedBackground(getColor(R.color.accent_surface), 18)
+            clipToOutline = true
+            isClickable = true
+            isFocusable = true
+            contentDescription = "بنر تبلیغاتی"
+            setOnClickListener { openHomeAd() }
+        }
+        adBannerContainer = container
+
+        adBannerImage = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            contentDescription = null
+        }
+        container.addView(adBannerImage, FrameLayout.LayoutParams(-1, -1))
+
+        val overlay = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+        }
+        val textColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+        val badge = TextView(this).apply {
+            text = "پیشنهاد آموزشی  •  تبلیغ"
+            textSize = 8.5f
+            setTextColor(getColor(R.color.secondary_text))
+            gravity = Gravity.END
+            setPadding(0, 0, 0, dp(1))
+        }
+        textColumn.addView(badge, LinearLayout.LayoutParams(-1, -2))
+        adBannerTitle = TextView(this).apply {
+            text = "آموزش زبان چینی"
+            textSize = 13f
+            setTextColor(Color.rgb(63, 48, 32))
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.END
+            maxLines = 1
+        }
+        textColumn.addView(adBannerTitle, LinearLayout.LayoutParams(-1, -2))
+        adBannerDescription = TextView(this).apply {
+            text = "یادگیری زبان چینی"
+            textSize = 10f
+            setTextColor(Color.rgb(91, 76, 57))
+            gravity = Gravity.END
+            maxLines = 1
+            setPadding(0, dp(1), 0, dp(3))
+        }
+        textColumn.addView(adBannerDescription, LinearLayout.LayoutParams(-1, -2))
+        adBannerCta = TextView(this).apply {
+            text = "مشاهده سایت  ←"
+            textSize = 9f
+            setTextColor(Color.WHITE)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dp(9), dp(3), dp(9), dp(3))
+            background = roundedRippleBackground(Color.rgb(155, 89, 48), 12)
+            contentDescription = "مشاهده سایت تبلیغ"
+        }
+        textColumn.addView(adBannerCta, LinearLayout.LayoutParams(-2, -2).apply {
+            gravity = Gravity.END
+        })
+        overlay.addView(textColumn, LinearLayout.LayoutParams(0, -1, 1f))
+        // Keep the illustrated part of the background visible on the left.
+        overlay.addView(View(this), LinearLayout.LayoutParams(dp(92), -1))
+        container.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        return container
+    }
+
+    private fun loadHomeAd() {
+        adExecutor.execute {
+            val result = HomeAdService.load(applicationContext)
+            runOnUiThread {
+                if (isFinishing || isDestroyed || !::adBannerContainer.isInitialized) return@runOnUiThread
+                val ad = result.first
+                currentHomeAd = ad
+                if (ad == null) {
+                    adBannerContainer.visibility = View.GONE
+                    return@runOnUiThread
+                }
+                adBannerTitle.text = ad.title
+                adBannerDescription.text = ad.description
+                adBannerCta.text = ad.ctaText + "  ←"
+                adBannerContainer.contentDescription = "تبلیغ: " + ad.title + "؛ برای باز کردن لمس کنید"
+                result.second?.let(adBannerImage::setImageBitmap)
+                adBannerContainer.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun openHomeAd() {
+        val ad = currentHomeAd ?: return
+        val uri = Uri.parse(ad.clickUrl)
+        if (uri.scheme != "https" || uri.host.isNullOrBlank()) {
+            Toast.makeText(this, "پیوند تبلیغ معتبر نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "مرورگری برای باز کردن تبلیغ پیدا نشد.", Toast.LENGTH_SHORT).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "باز کردن پیوند تبلیغ ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private fun buildToolbar(): View = FrameLayout(this).apply {
         background = roundedBackground(cardBackground, 22)
