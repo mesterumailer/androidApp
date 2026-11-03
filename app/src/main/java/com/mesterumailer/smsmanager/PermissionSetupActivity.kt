@@ -130,14 +130,14 @@ class PermissionSetupActivity : BaseActivity() {
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
         })
         addView(TextView(this@PermissionSetupActivity).apply {
-            text = "این نسخه از برنامه مجوز INTERNET ندارد و برای کارکرد معمول خود به اینترنت وصل نمی‌شود. پیامک‌ها از Inbox خود گوشی خوانده می‌شوند و تنظیمات و قواعد برنامه نیز به‌صورت محلی روی دستگاه نگهداری می‌شوند."
+            text = "برنامه برای دریافت بنرهای تبلیغاتی فعال از اینترنت استفاده می‌کند و فقط درخواست دریافت محتوای تبلیغ را به Cloudflare Worker می‌فرستد. متن پیامک‌ها، شماره فرستندگان و مخاطبان به سرور ارسال نمی‌شوند؛ خواندن و دسته‌بندی پیامک‌ها روی خود گوشی انجام می‌شود و تنظیمات برنامه نیز محلی نگهداری می‌شوند."
             textSize = 13f
             setTextColor(secondaryText)
             setLineSpacing(0f, 1.15f)
             setPadding(0, dp(7), 0, dp(8))
         })
         addView(TextView(this@PermissionSetupActivity).apply {
-            text = "در این فاز هیچ حساب کاربری، همگام‌سازی ابری یا ارسال داده به سرور وجود ندارد."
+            text = "داده‌های پیامک برای انتخاب یا نمایش تبلیغ استفاده نمی‌شوند. با لمس بنر، پیوند سایت تبلیغ‌دهنده در مرورگر باز می‌شود."
             textSize = 12f
             setTextColor(primaryText)
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
