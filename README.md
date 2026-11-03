@@ -2,7 +2,7 @@
 
 مدیریت و تحلیل پیامک‌های دریافتی روی Android، با تمرکز فعلی روی **فاز ۱: Inbox، دسته‌بندی قابل تنظیم و استخراج اطلاعات مهم**.
 
-> وضعیت فعلی: نسخه `0.9.0` — حذف نرم، سطل زباله، پاسخ و بهبود اعلان‌ها
+> وضعیت فعلی: نسخه `0.10.0` — بنر تبلیغاتی قابل مدیریت از Cloudflare D1، سطل زباله، پاسخ و بهبود اعلان‌ها
 
 > **راهنمای ادامه توسعه برای Agentها:** برای شناخت دقیق وضعیت واقعی پروژه، معماری، تصمیم‌های قطعی، Known Issueها، وضعیت branch/PR و ترتیب پیشنهادی ادامه کار، فایل **[PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)** مرجع اصلی مستندات continuation است.
 
@@ -215,6 +215,7 @@ MainActivity
 │   │   ├── SettingsActivity.kt
 │   │   ├── AppSettingsActivity.kt
 │   │   ├── PermissionSetupActivity.kt
+│   ├── HomeAdService.kt
 │   │   ├── SmsReceiver.kt
 │   │   ├── AppThemeManager.kt
 │   │   ├── data/
@@ -245,6 +246,11 @@ MainActivity
 │           ├── SmsBlockFilterTest.kt
 │           ├── SmsNotificationPolicyTest.kt
 │           └── SmsTextProcessorTest.kt
+├── cloudflare-ad-worker/
+│   ├── src/index.js
+│   ├── migrations/0001_ads.sql
+│   ├── wrangler.jsonc
+│   └── README.md
 ├── .github/workflows/android.yml
 ├── .github/workflows/android-release.yml
 ├── build.gradle.kts
@@ -322,7 +328,7 @@ Workflow این موارد را بررسی می‌کند:
 
 این مورد هنوز Root Cause قطعی ندارد و در [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) ثبت شده است. قبل از هر تغییر معماری Notification باید رفتار واقعی Notification Channel و تنظیمات دستگاه بررسی و سپس با تست دستگاه تأیید شود.
 
-## اعلان‌ها
+## بنر تبلیغاتی Cloudflare\n\nبنر در پایین صفحه اصلی و مستقل از فهرست پیام‌ها نمایش داده می‌شود. `HomeAdService` فقط درخواست HTTPS برای جایگاه `home_bottom` می‌فرستد و آخرین تبلیغ معتبر را برای حالت آفلاین در حافظه محلی cache می‌کند. هیچ داده پیامکی در این درخواست وجود ندارد. Worker عنوان، توضیح، متن CTA، تصویر و مسیر کلیک را از جدول D1 می‌خواند؛ مسیر `/r/{slug}` مقصد HTTPS ثبت‌شده در D1 را باز می‌کند و فقط شمارنده تجمیعی کلیک را افزایش می‌دهد. راه‌اندازی Worker و D1 در `cloudflare-ad-worker/README.md` مستند شده است.\n\n## اعلان‌ها
 
 دریافت زنده پیامک با `SMS_RECEIVED_ACTION` برای برنامه‌های غیر Default SMS نیز در Android قابل استفاده است و برای آن `RECEIVE_SMS` لازم است. اعلان‌ها روی Notification Channelهای جداگانه برای هر دسته قرار می‌گیرند و Android 13+ به مجوز `POST_NOTIFICATIONS` نیاز دارد.
 
@@ -338,9 +344,11 @@ Workflow این موارد را بررسی می‌کند:
 ## امنیت و حریم خصوصی
 
 - برای خواندن و دریافت زنده پیامک، `READ_SMS` و `RECEIVE_SMS` درخواست می‌شوند؛ برای اعلان‌های Android 13+ نیز `POST_NOTIFICATIONS` فقط در زمان نیاز درخواست می‌شود.
+- مجوز عادی `INTERNET` فقط برای دریافت محتوای بنر تبلیغاتی از Cloudflare Worker استفاده می‌شود. درخواست تبلیغ هیچ متن پیامک، شماره فرستنده، مخاطب یا شناسه حساب/دستگاه را ارسال نمی‌کند.
 - متن پیامک در log چاپ نمی‌شود.
 - پیامک‌ها در دیتابیس جداگانه ذخیره نمی‌شوند.
 - Ruleها، وضعیت دسته‌ها، تنظیمات فیلتر مسدودسازی و تنظیمات اعلان فقط به‌صورت محلی نگهداری می‌شوند.
+- اطلاعات تبلیغ و تصویر بنر در Cloudflare D1 نگهداری می‌شوند؛ شمارنده کلیک فقط تعداد کل کلیک‌ها را ثبت می‌کند و شناسه کاربر یا دستگاه ذخیره نمی‌شود.
 - ارسال مستقیم SMS و حذف واقعی SMS سیستم در این فاز وجود ندارد؛ حذف داخل پیامک‌یار فقط Soft Delete است و Reply به برنامهٔ SMS گوشی واگذار می‌شود.
 
 ## خارج از فاز فعلی
