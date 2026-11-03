@@ -131,13 +131,19 @@ export default {
           return new Response("Invalid ad destination", { status: 400 });
         }
 
-        await env.DB.prepare(
-          "UPDATE ads SET click_count = click_count + 1, updated_at = CURRENT_TIMESTAMP WHERE slug = ?"
-        ).bind(slug).run();
+        // Click analytics must never prevent the visitor from reaching the advertiser.
+        // Older/manual D1 schemas may not have click_count yet, so treat this as best-effort.
+        try {
+          await env.DB.prepare(
+            "UPDATE ads SET click_count = click_count + 1, updated_at = CURRENT_TIMESTAMP WHERE slug = ?"
+          ).bind(slug).run();
+        } catch {
+          // Intentionally ignored: redirect availability is more important than analytics.
+        }
 
         return Response.redirect(target.toString(), 302);
       } catch {
-        return new Response("Ad redirect unavailable", { status: 500 });
+        return new Response("Ad lookup unavailable. Check the ads table and DB binding.", { status: 503 });
       }
     }
 
