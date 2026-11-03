@@ -84,24 +84,27 @@ object HomeAdService {
         }
     }
 
-    private fun parseAd(rawJson: String): HomeAd? = try {
-        val json = JSONObject(rawJson)
-        val slug = json.optString("slug").trim()
-        val title = json.optString("title").trim()
-        val clickUrl = json.optString("click_url").trim()
-        if (slug.isBlank() || title.isBlank() || !isHttpsUrl(clickUrl)) {
-            return null
+    private fun parseAd(rawJson: String): HomeAd? {
+        return try {
+            val json = JSONObject(rawJson)
+            val slug = json.optString("slug").trim()
+            val title = json.optString("title").trim()
+            val clickUrl = json.optString("click_url").trim()
+            if (slug.isBlank() || title.isBlank() || !isHttpsUrl(clickUrl)) {
+                null
+            } else {
+                HomeAd(
+                    slug = slug,
+                    title = title,
+                    description = json.optString("description", "").trim(),
+                    ctaText = json.optString("cta_text", "مشاهده").trim().ifBlank { "مشاهده" },
+                    imageUrl = json.optString("image_url", "").trim(),
+                    clickUrl = clickUrl
+                )
+            }
+        } catch (_: Exception) {
+            null
         }
-        HomeAd(
-            slug = slug,
-            title = title,
-            description = json.optString("description", "").trim(),
-            ctaText = json.optString("cta_text", "مشاهده").trim().ifBlank { "مشاهده" },
-            imageUrl = json.optString("image_url", "").trim(),
-            clickUrl = clickUrl
-        )
-    } catch (_: Exception) {
-        null
     }
 
     private fun isHttpsUrl(value: String): Boolean {
