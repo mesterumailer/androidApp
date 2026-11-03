@@ -105,3 +105,32 @@ Channel ID اکنون بر اساس category و sound انتخاب‌شده سا
 - [ ] بررسی Heads-up/Pop-up
 - [ ] تغییر sound و تکرار تست
 - [ ] انتخاب «بدون صدا» و بررسی silent بودن
+
+
+## 2026-11-03 — Remote bottom advertising banner
+
+**Type:** Product requirement  
+**Status:** Implemented in source — pending Cloudflare deployment and device verification
+
+### رفتار مورد انتظار
+
+- بنر تبلیغاتی در پایین Inbox و خارج از scroll list ثابت می‌ماند.
+- محتوای تبلیغ و مقصد از Cloudflare D1 خوانده می‌شود؛ Worker API فقط تبلیغ فعال جایگاه `home_bottom` را برمی‌گرداند.
+- لمس بنر از redirect خود Worker به HTTPS target ثبت‌شده در D1 می‌رود.
+- تصویر WebP اولیه داخل همان رکورد D1 نگهداری می‌شود.
+- اپ فقط برای دریافت تبلیغ از اینترنت استفاده می‌کند؛ متن SMS، شماره فرستنده و مخاطب ارسال نمی‌شوند.
+
+### تبلیغ اولیه
+
+- Slug: `yajing-chinese`
+- عنوان: آموزش زبان چینی
+- مقصد: `https://yajingchinese.ir`
+- جایگاه: `home_bottom`
+
+### موارد باقی‌مانده برای تأیید
+
+- [ ] ایجاد D1 و اجرای migration در Cloudflare
+- [ ] استقرار Worker با binding به نام `DB`
+- [ ] تست `/health` و `/api/v1/ads/active?placement=home_bottom`
+- [ ] تست دریافت تصویر WebP و redirect مقصد
+- [ ] اجرای GitHub Actions و تست واقعی روی گوشی
