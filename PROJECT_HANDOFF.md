@@ -3,7 +3,7 @@
 این فایل مرجع ادامه توسعه پروژه برای توسعه‌دهنده انسانی و Agentهای هوش مصنوعی است. هدف آن این است که یک Agent جدید بدون اتکا به حافظه گفتگوهای قبلی بتواند وضعیت واقعی پروژه، تصمیم‌های قطعی، معماری فعلی، محدودیت‌ها و مسیر ادامه توسعه را درک کند.
 
 > **آخرین ممیزی مستندات و کد:** 2026-11-03  
-> **مرجع وضعیت فعلی:** branch `feature/next-release`، مشتق‌شده از `release/v0.8.0` و در حال آماده‌سازی نسخه `0.9.0`
+> **مرجع وضعیت فعلی:** branch `feature/next-release`، مشتق‌شده از `release/v0.8.0` و در حال آماده‌سازی نسخه `0.10.0`
 
 ---
 
@@ -116,11 +116,19 @@
 - صفحه تنظیمات راهنمای Battery و امکان باز کردن تنظیمات برنامه.
 - کپی خودکار OTP در Clipboard با پیش‌فرض روشن و نمایش کد OTP در Notification.
 - OTP در Clipboard با flag محتوای حساس علامت‌گذاری می‌شود.
-- بنر تبلیغاتی پایین Inbox از Cloudflare Worker دریافت می‌شود؛ عنوان، توضیح، CTA، تصویر WebP، URL مقصد، وضعیت فعال و priority از جدول D1 مدیریت می‌شوند.
-- `HomeAdService` درخواست HTTPS تبلیغ را در thread جداگانه انجام می‌دهد و آخرین JSON معتبر را برای حالت آفلاین cache می‌کند.
-- کلیک بنر از مسیر `/r/{slug}` در Worker عبور می‌کند؛ Worker مقصد HTTPS را از D1 می‌خواند و فقط شمارنده تجمیعی کلیک را افزایش می‌دهد.
 - تنظیم Auto Copy در Backup/Restore JSON نیز ذخیره می‌شود.
 - Notification sound فعلاً در تست کاربر حل‌شده است و فقط regression check لازم دارد.
+
+### امکانات اضافه‌شده در نسخه 0.10.0 (در حال آماده‌سازی)
+
+- بنر ثابت تبلیغاتی در پایین Inbox.
+- دریافت عنوان، توضیح، CTA، تصویر WebP و مسیر کلیک از Cloudflare Worker با داده‌های Cloudflare D1.
+- ذخیره تصویر بنر اولیه به‌صورت Base64 در رکورد D1؛ برای تبلیغ اولیه نیازی به R2 نیست.
+- redirect کلیک از Worker به مقصد HTTPS موجود در D1 و ثبت شمارنده کلیک تجمیعی.
+- درخواست اینترنتی اپ فقط برای دریافت تبلیغ است؛ SMS، شماره فرستنده و مخاطب به Worker ارسال نمی‌شوند.
+- تست‌های Node برای Worker و اعتبارسنجی migration/تصویر در CI اضافه شده‌اند.
+
+**وضعیت استقرار:** کد Worker، migration و کلاینت Android در branch ثبت شده‌اند؛ ایجاد D1، اجرای SQL، استقرار Worker و تست روی گوشی هنوز باید انجام شوند. تا زمانی که Worker فعال نشود، بنر در اپ نمایش داده نمی‌شود مگر نسخه cache‌شده‌ای وجود داشته باشد.
 
 ### هنوز کامل نشده
 
@@ -848,8 +856,8 @@ Keystore نباید وارد repository شود.
 
 - branch توسعه نسخه جدید: `feature/next-release`
 - base: `release/v0.8.0`
-- نسخه مقصد: `0.9.0`
-- versionCode مقصد: `14`
+- نسخه مقصد: `0.10.0`
+- versionCode مقصد: `15`
 - `main` نباید با featureهای نسخه جدید تغییر کند مگر با merge رسمی.
 - فایل `SmsOtpSettingsRepository.kt` یک بار به اشتباه روی main ایجاد شد و بلافاصله با یک commit cleanup حذف شد؛ نسخه صحیح آن روی `feature/next-release` قرار گرفته است.
 
@@ -879,21 +887,22 @@ main
 
 ## 22. وضعیت و ترتیب ادامه توسعه
 
-### وضعیت فعلی نسخه 0.9.0
+### وضعیت فعلی نسخه 0.10.0
 
-Featureهای اصلی نسخه جدید در branch `feature/next-release` پیاده شده‌اند:
+Featureهای نسخه 0.9.0 و بنر تبلیغاتی نسخه 0.10.0 در branch `feature/next-release` پیاده شده‌اند:
 
 - Soft Delete + Trash
 - Reply
 - Battery guidance
 - OTP Auto Copy + Notification code
+- Remote Cloudflare bottom banner
 
 ### گام بعد
 
 1. تکمیل Device Test روی گوشی واقعی، مخصوصاً Soft Delete/Trash، Reply، OTP Clipboard/Notification و Battery guidance.
 2. اجرای regression کامل نسخه 0.8.0 با تمرکز ویژه روی Notification Sound که فعلاً حل‌شده گزارش شده است.
 3. در صورت موفقیت تست‌ها، آماده‌سازی debug/release candidate و سپس merge کنترل‌شده به مسیر پایدار.
-4. قابلیت‌های Room، statistics، classifier هوشمندتر و featureهای بزرگ‌تر بعد از پایدار شدن 0.9.0 بررسی شوند.
+4. قابلیت‌های Room، statistics، classifier هوشمندتر و featureهای بزرگ‌تر بعد از پایدار شدن 0.10.0 بررسی شوند.
 
 ## 23. اصول مهندسی پروژه
 
@@ -982,10 +991,11 @@ SmsInboxFilter.kt
 - Room هنوز اضافه نشده است.
 - classification فعلی rule-based و deterministic است.
 - Notification بر اساس category و Notification Channel انجام می‌شود.
+- مجوز `INTERNET` برای دریافت بنر از Worker اضافه شده است؛ درخواست تبلیغ هیچ داده SMS، شماره فرستنده، مخاطب یا شناسه کاربر/دستگاه را در payload ندارد.
 - کاربر در تست واقعی وجود sound bug را گزارش کرده است.
-- branch توسعه فعلی `feature/phase-1-sms-inbox` است.
+- branch توسعه فعلی `feature/next-release` است.
 - branch با `main` diverged است؛ merge نباید بدون reconcile انجام شود.
-- نسخه فعلی کد `0.8.0` و versionCode برابر `13` است.
+- نسخه فعلی کد `0.10.0` و versionCode برابر `15` است.
 - سقف پیش‌فرض بررسی Inbox برابر 500 پیام است.
 - UI فارسی/RTL است.
 - پروژه باید تا حد ممکن سبک و ساده باقی بماند.
@@ -1010,7 +1020,7 @@ Source of truth به ترتیب:
 
 ## 26. Release readiness فعلی
 
-نسخه 0.9.0 هنوز Release رسمی نشده است. کد روی branch `feature/next-release` قرار دارد و buildهای CI برای تغییرات مرحله‌ای در حال بررسی هستند.
+نسخه 0.10.0 هنوز Release رسمی نشده است. کد روی branch `feature/next-release` قرار دارد و buildهای CI برای تغییرات مرحله‌ای در حال بررسی هستند.
 
 قبل از Release رسمی باید:
 
@@ -1046,7 +1056,7 @@ Source of truth به ترتیب:
 
 ## 28. آخرین وضعیت ثبت‌شده
 
-در نسخه 0.9.0، چهار قابلیت اصلی برای این milestone پیاده شده‌اند: Soft Delete/Trash، Reply، Battery guidance و OTP Auto Copy/Notification code. استخراج و نمایش مبلغ تراکنش در مسیر فعلی عمداً غیرفعال شده است تا هزینه پردازش Inbox و فیلترسازی کاهش یابد. در مرحله بعد، تمرکز روی Device Test و Regression است.
+در نسخه 0.9.0، چهار قابلیت اصلی Soft Delete/Trash، Reply، Battery guidance و OTP Auto Copy/Notification code پیاده شدند. در نسخه 0.10.0 بنر تبلیغاتی remote با Cloudflare Worker و D1 اضافه شده است؛ استقرار Cloudflare و تست زنده آن هنوز pending است. استخراج و نمایش مبلغ تراکنش در مسیر فعلی عمداً غیرفعال مانده است. پیش از Release باید تست CI، تست دستگاه واقعی و Regression تکمیل شوند.
 
 آخرین وضعیت عملی Notification Sound: کاربر اعلام کرده مشکل صدای اعلان فعلاً حل شده است و Issue #4 بسته شده؛ این مورد فقط باید در regression نهایی دوباره بررسی شود.
 
