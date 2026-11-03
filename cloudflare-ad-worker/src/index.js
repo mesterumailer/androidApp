@@ -62,12 +62,49 @@ export default {
             title: ad.title,
             description: ad.description || "",
             cta_text: ad.cta_text || "مشاهده",
-            image_url: ad.image_url || "",
+            image_url: ad.image_url && ad.image_url.startsWith("https://")
+              ? ad.image_url
+              : `${origin}/api/v1/ads/${encodeURIComponent(ad.slug)}/banner`,
             click_url: `${origin}/r/${encodeURIComponent(ad.slug)}`,
           },
         });
       } catch {
         return json({ ok: false, error: "database_read_failed" }, 500);
+      }
+    }
+
+    const bannerMatch = url.pathname.match(/^\/api\/v1\/ads\/([a-z0-9-]{1,80})\/banner$/);
+    if (bannerMatch) {
+      const slug = bannerMatch[1];
+      try {
+        const asset = await env.DB.prepare(`
+          SELECT image_mime, image_base64
+          FROM ads
+          WHERE slug = ?
+            AND is_active = 1
+            AND (starts_at IS NULL OR starts_at <= CURRENT_TIMESTAMP)
+            AND (ends_at IS NULL OR ends_at >= CURRENT_TIMESTAMP)
+          LIMIT 1
+        `).bind(slug).first();
+
+        if (!asset || !asset.image_base64) {
+          return new Response("Banner image not found", { status: 404 });
+        }
+
+        const binary = atob(asset.image_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new Response(bytes, {
+          headers: {
+            "content-type": asset.image_mime || "image/webp",
+            "cache-control": "public, max-age=3600",
+            "x-content-type-options": "nosniff",
+          },
+        });
+      } catch {
+        return new Response("Banner image unavailable", { status: 500 });
       }
     }
 
