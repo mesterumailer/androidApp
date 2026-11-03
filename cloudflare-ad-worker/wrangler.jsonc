@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "sms-manager-ads",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-03",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sms-manager-ads",
+      "database_id": "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+    }
+  ]
+}
