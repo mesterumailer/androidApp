@@ -114,11 +114,6 @@ class MainActivity : BaseActivity() {
         if (hasRequiredSmsPermissions()) loadInbox()
     }
 
-    override fun onDestroy() {
-        adExecutor.shutdownNow()
-        super.onDestroy()
-    }
-
     private fun buildContent(): DrawerLayout {
         drawerLayout = DrawerLayout(this).apply { setBackgroundColor(pageBackground) }
         val main = LinearLayout(this).apply {
@@ -1323,6 +1318,7 @@ class MainActivity : BaseActivity() {
     override fun onDestroy() {
         processingShowTask?.let(processingHandler::removeCallbacks)
         processingExecutor.shutdownNow()
+        adExecutor.shutdownNow()
         super.onDestroy()
     }
 
