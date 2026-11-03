@@ -2,7 +2,7 @@
 
 این فایل مرجع ادامه توسعه پروژه برای توسعه‌دهنده انسانی و Agentهای هوش مصنوعی است. هدف آن این است که یک Agent جدید بدون اتکا به حافظه گفتگوهای قبلی بتواند وضعیت واقعی پروژه، تصمیم‌های قطعی، معماری فعلی، محدودیت‌ها و مسیر ادامه توسعه را درک کند.
 
-> **آخرین ممیزی مستندات و کد:** 2026-10-02  
+> **آخرین ممیزی مستندات و کد:** 2026-11-03  
 > **مرجع وضعیت فعلی:** branch `feature/next-release`، مشتق‌شده از `release/v0.8.0` و در حال آماده‌سازی نسخه `0.9.0`
 
 ---
@@ -22,8 +22,8 @@
 - Android Gradle Plugin: 8.7.3
 - Kotlin plugin: 2.0.21
 - Gradle مورد استفاده در CI: 8.9
-- نسخه فعلی اپ در کد: `0.9.0`
-- versionCode فعلی: `14`
+- نسخه فعلی اپ در کد: `0.10.0`
+- versionCode فعلی: `15`
 
 ---
 
@@ -116,6 +116,9 @@
 - صفحه تنظیمات راهنمای Battery و امکان باز کردن تنظیمات برنامه.
 - کپی خودکار OTP در Clipboard با پیش‌فرض روشن و نمایش کد OTP در Notification.
 - OTP در Clipboard با flag محتوای حساس علامت‌گذاری می‌شود.
+- بنر تبلیغاتی پایین Inbox از Cloudflare Worker دریافت می‌شود؛ عنوان، توضیح، CTA، تصویر WebP، URL مقصد، وضعیت فعال و priority از جدول D1 مدیریت می‌شوند.
+- `HomeAdService` درخواست HTTPS تبلیغ را در thread جداگانه انجام می‌دهد و آخرین JSON معتبر را برای حالت آفلاین cache می‌کند.
+- کلیک بنر از مسیر `/r/{slug}` در Worker عبور می‌کند؛ Worker مقصد HTTPS را از D1 می‌خواند و فقط شمارنده تجمیعی کلیک را افزایش می‌دهد.
 - تنظیم Auto Copy در Backup/Restore JSON نیز ذخیره می‌شود.
 - Notification sound فعلاً در تست کاربر حل‌شده است و فقط regression check لازم دارد.
 
@@ -295,6 +298,25 @@ Action:
 ### Soft Delete
 
 پیام‌های حذف‌شده با کلید پایدار محلی توسط `SmsTrashRepository` نگهداری می‌شوند و پیش از Search/Category display filter از Inbox برنامه کنار گذاشته می‌شوند. داده SMS سیستم تغییر نمی‌کند.
+
+## Cloudflare Ads Architecture
+
+Repository folder:
+`cloudflare-ad-worker/`
+
+- Worker: `sms-manager-ads`
+- Expected URL: `https://sms-manager-ads.mesterumailer.workers.dev` (based on the existing account subdomain; verify after deployment)
+- D1 database: `sms-manager-ads`
+- Binding: `DB`
+- App endpoint: `/api/v1/ads/active?placement=home_bottom`
+- Banner image endpoint: `/api/v1/ads/{slug}/banner`
+- Click redirect endpoint: `/r/{slug}`
+
+The initial Yajing Chinese banner metadata and WebP image are seeded by `migrations/0001_ads.sql`. The image is stored as Base64 in the D1 row; R2 is not required for the first ad. No public ad-management endpoint exists. Edits are made in the D1 console.
+
+**Deployment status:** source and seed SQL committed to `feature/next-release`; actual Cloudflare Worker/D1 provisioning and live endpoint verification remain pending. The app hides the banner if no valid ad can be fetched or cached.
+
+The application requests only ad content. It does not include SMS bodies, sender numbers, contacts, or device/account identifiers in its request. Cloudflare's normal network-level metadata handling is outside the app's control.
 
 ## 10. Notification Architecture
 
