@@ -16,21 +16,58 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         "verification code", "one-time password", "one time password"
     )
 
-    private val transactionEvidencePhrases = listOf(
-        "واریز:", "واریز مبلغ", "برداشت:", "برداشت مبلغ", "انتقال وجه", "انتقال به",
-        "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط قرارداد",
-        "پرداخت قسط", "با موفقیت پرداخت شد"
+    private val bankSenderMarkers = listOf(
+        "bank", "بانک", "melli", "tejarat", "sepah", "shaparak",
+        "saman", "pasargad", "resalat", "melat", "mellat"
+    )
+
+    private val bankBodyMarkers = listOf(
+        "بانک ملی", "بانک سپه", "بانک تجارت", "بانك ملي", "بانک ملت",
+        "پرداخت الکترونیک سامان", "شاپرک", "همراه بانک"
+    )
+
+    private val explicitMoneyEvents = listOf(
+        "واریز مبلغ", "برداشت مبلغ", "انتقال وجه", "کارت به کارت",
+        "پرداخت قسط قرارداد", "با موفقیت پرداخت شد", "تراکنش حسابی",
+        "واریز:", "برداشت:", "انتقال:"
+    )
+
+    private val deliveryStrongMarkers = listOf(
+        "مرسوله", "پستچی", "کد رهگیری مرسوله", "رهگیری پست",
+        "تحویل پست", "پست شد", "پستی شما", "توزیع مرسوله",
+        "پیک", "courier", "shipment", "tracking.post.ir",
+        "tracking.post"
+    )
+
+    private val promotionMarkers = listOf(
+        "تخفیف", "تخفیفی", "حراج", "پیشنهاد ویژه", "کد تخفیف",
+        "فروش ویژه", "جشنواره", "کف خرید", "حداقل خرید", "خرید اقساطی",
+        "اقساطی", "اعتبارت بخر", "هدیه", "جایزه", "کمپین",
+        "ثبت نام رایگان", "رایگان", "تهیه بلیت", "تهیه بلیط",
+        "خرید بلیت", "خرید بلیط", "کنسرت", "dj night", "رزرو میز",
+        "کلاس", "قبولی", "مصاحبه", "خلاصه رایگان کتاب", "استعلام قیمت",
+        "مشاوره تخصصی", "اجرای تخصصی", "کیورد ریسرچ", "سئو",
+        "seo", "ابزار geo", "به مشتریای مرتبط", "فروشگاه اینترنتی",
+        "بیمه البرز درمان", "ویژه مهندس", "ویژه مهندسان",
+        "معرفی کن", "prize"
     )
 
     fun analyze(address: String, body: String): SmsAnalysis {
         val normalizedBody = normalize(body)
         val normalizedSender = normalize(address)
-        val transactionEvidence = hasTransactionEvidence(normalizedBody)
+        val transactionEvidence = hasTransactionEvidence(normalizedSender, normalizedBody)
+        val deliveryEvidence = hasDeliveryEvidence(normalizedBody)
         val forcedOtpRule = rules.firstOrNull { it.categoryId == "otp" }
             ?.takeIf { hasOtpEvidence(normalizedBody, transactionEvidence) }
 
         val candidates = rules.mapNotNull { rule ->
-            val score = score(rule, normalizedSender, normalizedBody, transactionEvidence)
+            val score = score(
+                rule = rule,
+                sender = normalizedSender,
+                body = normalizedBody,
+                transactionEvidence = transactionEvidence,
+                deliveryEvidence = deliveryEvidence
+            )
             if (score <= 0) null else rule to score
         }.sortedWith(
             compareByDescending<Pair<FilterRule, Int>> { it.second }
@@ -41,8 +78,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         val categoryId = winningRule?.categoryId ?: SmsCategory.UNKNOWN.id
         val category = SmsCategory.fromId(categoryId)
 
-        // Amount extraction is intentionally disabled for now to keep Inbox
-        // loading/filtering focused on the active classification features.
+        // Amount extraction remains intentionally disabled.
         val otp = otpRegex.find(normalizedBody)?.value
         val confidence = if (forcedOtpRule != null) {
             1f
@@ -63,22 +99,71 @@ class SmsClassifier(private val rules: List<FilterRule>) {
 
     private fun hasOtpEvidence(body: String, transactionEvidence: Boolean): Boolean {
         if (transactionEvidence || !otpRegex.containsMatchIn(body)) return false
-        return otpPhrases.any { normalize(it) in body } || codeForLoginRegex.containsMatchIn(body)
+        return otpPhrases.any { normalize(it) in body } ||
+            codeForLoginRegex.containsMatchIn(body)
     }
 
-    private fun hasTransactionEvidence(body: String): Boolean {
-        if (transactionEvidencePhrases.any { normalize(it) in body }) return true
-        return Regex("(?:واریز|برداشت)\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
+    private fun hasBankContext(sender: String, body: String): Boolean {
+        return bankSenderMarkers.any { normalize(it) in sender } ||
+            bankBodyMarkers.any { normalize(it) in body }
+    }
+
+    private fun hasTransactionEvidence(sender: String, body: String): Boolean {
+        if (explicitMoneyEvents.any { normalize(it) in body }) return true
+
+        // Bank statement templates often use compact labels rather than prose.
+        val compactDebitOrCredit = Regex(
+            "(?:واریز|برداشت|انتقال|قسط)\\s*[:：]\\s*[\\d,]+\\s*[+-]?"
+        ).containsMatchIn(body)
+        if (compactDebitOrCredit && hasBankContext(sender, body)) return true
+
+        // Purchase SMS from a bank: "خرید / merchant / مبلغ 123,456 / رمز 123456".
+        val bankPurchaseWithAmount =
+            hasBankContext(sender, body) &&
+            "خرید" in body &&
+            Regex("مبلغ\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
+        if (bankPurchaseWithAmount) return true
+
+        // "انتقال به ... مبلغ ..." is a bank transfer even when the word انتقال وجه is absent.
+        val bankTransferWithAmount =
+            hasBankContext(sender, body) &&
+            "انتقال به" in body &&
+            Regex("مبلغ\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
+        if (bankTransferWithAmount) return true
+
+        // Successful installment payment is a financial event, not a service reminder.
+        return "پرداخت قسط" in body &&
+            ("با موفقیت پرداخت شد" in body || "قرارداد" in body)
+    }
+
+    private fun hasDeliveryEvidence(body: String): Boolean {
+        // Generic words such as "تحویل" or "رهگیری" are insufficient on their own.
+        if (deliveryStrongMarkers.any { normalize(it) in body }) return true
+
+        val orderAndCourier =
+            "سفارش" in body &&
+            ("پیک" in body || "تحویل داده می شود" in body || "تحویل می شود" in body)
+        if (orderAndCourier) return true
+
+        val parcelAndDistribution =
+            ("مرسوله" in body || "بسته پستی" in body || "مرسوله پستی" in body) &&
+            ("ارسال" in body || "توزیع" in body || "مراجعه" in body || "ثبت گردید" in body)
+        return parcelAndDistribution
     }
 
     private fun score(
         rule: FilterRule,
         sender: String,
         body: String,
-        transactionEvidence: Boolean
+        transactionEvidence: Boolean,
+        deliveryEvidence: Boolean
     ): Int {
         if (rule.categoryId == "transaction" && !transactionEvidence) return 0
-        if (rule.categoryId == "promotion" && transactionEvidence) return 0
+        if (rule.categoryId == "delivery" && !deliveryEvidence) return 0
+        if (rule.categoryId == "promotion" &&
+            (transactionEvidence || deliveryEvidence && "پیشنهاد" !in body)
+        ) return 0
+        if (rule.categoryId == "service" && (transactionEvidence || deliveryEvidence)) return 0
         if (rule.excludedKeywords.any { normalize(it) in body }) return 0
 
         val anyHits = rule.anyKeywords.count { normalize(it) in body }
@@ -90,7 +175,8 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         val senderHits = rule.senderContains.count { normalize(it) in sender }
         if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return 0
 
-        val score = (anyHits * 2) + (senderHits * 4) + (rule.requiredKeywords.size * 3)
+        // A sender match is supporting evidence, never enough to label an SMS financial or delivery.
+        val score = (anyHits * 2) + (senderHits * 2) + (rule.requiredKeywords.size * 3)
         return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
     }
 
