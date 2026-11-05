@@ -69,8 +69,24 @@ class SmsClassifier(
                 phraseMap.forEach { (phrase, value) ->
                     if (normalize(phrase) in text) score += value
                 }
-                senderWeights[category].orEmpty().forEach { (alias, value) ->
+                // Keep user-added rules effective even for built-in categories.
+                rule.anyKeywords.distinct().filterNot { phraseMap.containsKey(it) }.forEach {
+                    if (normalize(it) in text) score += 3
+                }
+                rule.requiredKeywords.distinct().forEach {
+                    score += if (normalize(it) in text) 5 else -10
+                }
+                rule.excludedKeywords.distinct().forEach {
+                    if (normalize(it) in text) score -= 10
+                }
+                val knownSenders = senderWeights[category].orEmpty()
+                knownSenders.forEach { (alias, value) ->
                     if (normalize(alias) in sender) score += value * senderWeight.coerceIn(0, 5)
+                }
+                rule.senderContains.distinct().filterNot { alias ->
+                    knownSenders.keys.any { normalize(it) == normalize(alias) }
+                }.forEach {
+                    if (normalize(it) in sender) score += 2 * senderWeight.coerceIn(0, 5)
                 }
             } else {
                 rule.anyKeywords.distinct().forEach { if (normalize(it) in text) score += 3 }
