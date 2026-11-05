@@ -205,4 +205,23 @@ class SmsClassifierTest {
         assertEquals("unknown", defaultClassifier.analyze("دوست", "مانده حساب شما 500,000 ریال است").categoryId)
     }
 
+
+    @Test
+    fun transferInstructionsWithoutAmountAreNotFinancialTransactions() {
+        val result = defaultClassifier.analyze(
+            "TejaratBank",
+            "برای انتقال وجه از منوی انتقال حساب استفاده کنید"
+        )
+        assertEquals("unknown", result.categoryId)
+    }
+
+    @Test
+    fun installmentReminderWithoutSuccessfulPaymentIsNotTransaction() {
+        val result = defaultClassifier.analyze(
+            "TejaratBank",
+            "یادآوری: پرداخت قسط قرارداد تا تاریخ 1405/09/01 انجام شود"
+        )
+        assertEquals(false, result.categoryId == "transaction")
+    }
+
 }
