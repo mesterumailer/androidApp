@@ -68,7 +68,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
 
     private fun hasTransactionEvidence(body: String): Boolean {
         if (transactionEvidencePhrases.any { normalize(it) in body }) return true
-        return Regex("(?:واریز|برداشت)\\\\s*[:：]?\\\\s*[\\\\d,]+").containsMatchIn(body)
+        return Regex("(?:واریز|برداشت)\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
     }
 
     private fun score(
