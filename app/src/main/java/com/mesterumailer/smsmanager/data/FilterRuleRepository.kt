@@ -22,10 +22,10 @@ class FilterRuleRepository(context: Context) {
     }
 
     private fun migrateUnmodifiedLegacyDefaults(rules: List<FilterRule>): List<FilterRule> {
-        val legacy = legacyDefaultRules().associateBy { it.categoryId }
+        val legacy = (legacyDefaultRules() + previousReleaseDefaultRules()).groupBy { it.categoryId }
         val current = defaultRules().associateBy { it.categoryId }
         val migrated = rules.map { rule ->
-            if (legacy[rule.categoryId] == rule) current[rule.categoryId] ?: rule else rule
+            if (legacy[rule.categoryId].orEmpty().any { it == rule }) current[rule.categoryId] ?: rule else rule
         }
         if (migrated != rules) saveRules(migrated)
         return migrated
@@ -215,5 +215,82 @@ class FilterRuleRepository(context: Context) {
                 priority = 30
             )
         )
+
+        private fun previousReleaseDefaultRules(): List<FilterRule> = listOf(
+            FilterRule(
+                categoryId = "otp",
+                displayName = "کد تأیید",
+                senderContains = listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید"),
+                anyKeywords = listOf(
+                    "رمز پویا", "رمز یکبار مصرف", "رمز یک‌بار مصرف", "کد تایید", "کد تأیید",
+                    "کد ورود", "کد فعالسازی", "کد امنیتی", "verification code", "one-time", "otp", "code"
+                ),
+                excludedKeywords = listOf("تخفیف", "حراج", "کد درگاه"),
+                minimumAnyMatches = 1,
+                priority = 100
+            ),
+            FilterRule(
+                categoryId = "promotion",
+                displayName = "تبلیغاتی",
+                senderContains = listOf("ads", "advert", "marketing", "promo"),
+                anyKeywords = listOf(
+                    "تخفیف", "تخفیفی", "حراج", "پیشنهاد ویژه", "کد تخفیف", "فروش ویژه", "جشنواره",
+                    "کف خرید", "حداقل خرید", "خرید اقساطی", "اقساطی", "اعتبارت بخر", "هدیه",
+                    "بسته ویژه", "بعدا بده", "بعداً بده", "آخر ماه پرداخت",
+                    "discount", "sale", "offer", "promo", "promotion", "coupon", "%"
+                ),
+                excludedKeywords = listOf(
+                    "تراکنش", "واریز مبلغ", "برداشت مبلغ", "انتقال وجه", "انتقال به",
+                    "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط قرارداد",
+                    "پرداخت قسط", "با موفقیت پرداخت شد", "رمز پویا", "کد تأیید", "کد تایید"
+                ),
+                minimumAnyMatches = 1,
+                priority = 60
+            ),
+            FilterRule(
+                categoryId = "service",
+                displayName = "خدمات",
+                senderContains = listOf("service", "support", "notify", "سرویس", "policefata"),
+                anyKeywords = listOf(
+                    "فعال سازی", "فعالسازی", "غیرفعال سازی", "غیرفعالسازی", "اشتراک", "تمدید",
+                    "قبض", "یادآوری", "اعلان", "درخواست", "خدمات", "اختلال", "سرویس دهی",
+                    "ورود به سامانه", "وارد همراه بانک", "وارد سامانه", "اطلاع رسانی",
+                    "شهروند گرامی", "کلاهبرداری", "کلاهبرداران", "هک گوشی", "سرقت موجودی",
+                    "هشدار", "اخطار", "پشتیبانی",
+                    "service", "subscription", "renewal", "support", "notification"
+                ),
+                excludedKeywords = listOf(
+                    "تخفیف", "حراج", "واریز مبلغ", "برداشت مبلغ", "انتقال وجه",
+                    "انتقال به", "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط"
+                ),
+                minimumAnyMatches = 1,
+                priority = 50
+            ),
+            FilterRule(
+                categoryId = "delivery",
+                displayName = "ارسال و تحویل",
+                senderContains = listOf("post", "delivery", "courier", "پست", "ارسال", "مرسوله"),
+                anyKeywords = listOf(
+                    "مرسوله", "تحویل", "رهگیری", "پیگیری مرسوله", "کد رهگیری", "ارسال شد",
+                    "پیک", "delivery", "tracking", "shipment", "courier"
+                ),
+                minimumAnyMatches = 1,
+                priority = 35
+            ),
+            FilterRule(
+                categoryId = "transaction",
+                displayName = "تراکنش مالی",
+                senderContains = listOf("bank", "بانک", "shaparak", "payment", "card"),
+                anyKeywords = listOf(
+                    "واریز:", "واریز مبلغ", "برداشت:", "برداشت مبلغ", "انتقال وجه", "انتقال به",
+                    "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط قرارداد",
+                    "پرداخت قسط", "با موفقیت پرداخت شد",
+                    "deposit", "withdrawal", "money transfer", "card to card"
+                ),
+                minimumAnyMatches = 1,
+                priority = 30
+            )
+        )
+
     }
 }
