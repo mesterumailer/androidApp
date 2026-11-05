@@ -6,6 +6,7 @@ on:
     branches:
       - 'feature/phase-1-sms-inbox'
       - 'release/v*'
+      - 'candidate/**'
     tags:
       - 'v*'
 
