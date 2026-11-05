@@ -56,6 +56,9 @@ class SmsClassifier(
     )
 
     fun analyze(address: String, body: String): SmsAnalysis {
+        if (rules.map { it.categoryId }.toSet() != setOf("otp", "transaction", "delivery", "promotion", "service")) {
+            return analyzeCustomRules(address, body)
+        }
         val sender = normalize(address)
         val text = normalize(body)
         val scores = linkedMapOf<String, Int>()
@@ -124,6 +127,30 @@ class SmsClassifier(
             otpCode = if (categoryId == "otp") numberRegex.find(text)?.value else null,
             amount = null,
             confidence = confidence
+        )
+    }
+
+    private fun analyzeCustomRules(address: String, body: String): SmsAnalysis {
+        val sender = normalize(address)
+        val text = normalize(body)
+        val candidates = rules.mapNotNull { rule ->
+            if (rule.excludedKeywords.any { normalize(it) in text }) return@mapNotNull null
+            val anyHits = rule.anyKeywords.count { normalize(it) in text }
+            if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches) return@mapNotNull null
+            if (rule.requiredKeywords.any { normalize(it) !in text }) return@mapNotNull null
+            val senderHits = rule.senderContains.count { normalize(it) in sender }
+            if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return@mapNotNull null
+            val value = anyHits * 2 + senderHits * 2 + rule.requiredKeywords.size * 3 + rule.priority.coerceIn(0, 100) / 10
+            if (value > 0) rule to value else null
+        }.sortedByDescending { it.second }
+        val winner = candidates.firstOrNull()?.first
+        val categoryId = winner?.categoryId ?: SmsCategory.UNKNOWN.id
+        return SmsAnalysis(
+            category = SmsCategory.fromId(categoryId),
+            categoryId = categoryId,
+            otpCode = numberRegex.find(text)?.value,
+            amount = null,
+            confidence = candidates.firstOrNull()?.second?.let { (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f) } ?: 0f
         )
     }
 
