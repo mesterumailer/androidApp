@@ -3,10 +3,12 @@ package com.mesterumailer.smsmanager
 import androidx.appcompat.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
+import android.provider.Settings
 import android.net.Uri
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import android.media.RingtoneManager
 import android.graphics.Typeface
 import android.graphics.Color
@@ -29,6 +31,8 @@ import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
 import com.mesterumailer.smsmanager.data.ThemePreferenceRepository
+import com.mesterumailer.smsmanager.data.SmsOtpSettingsRepository
+import com.mesterumailer.smsmanager.model.SmsCategory
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
@@ -233,7 +237,10 @@ class AppSettingsActivity : BaseActivity() {
         body.addView(inboxCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         body.addView(buildBlockSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildTrashCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildNotificationSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildOtpSettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        body.addView(buildBatterySettingsCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         body.addView(buildBackupCard(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
         val scroll = ScrollView(this).apply {
@@ -246,6 +253,108 @@ class AppSettingsActivity : BaseActivity() {
         return root
     }
 
+
+
+
+    private fun buildOtpSettingsCard(): View = LinearLayout(this).apply {
+        val repository = SmsOtpSettingsRepository(this@AppSettingsActivity)
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = roundedBackground(card, 22)
+        elevation = dp(1).toFloat()
+
+        addView(buildSectionHeader(
+            "کد تأیید",
+            "وقتی پیامکی به دسته «کد تأیید» تشخیص داده شود و اعلان آن دسته فعال باشد، کد استخراج‌شده می‌تواند به‌صورت خودکار در Clipboard کپی شود و همان کد در متن اعلان نمایش داده شود. این گزینه به‌صورت پیش‌فرض روشن است. کد تأیید اطلاعات حساس محسوب می‌شود و فقط خود کد در Clipboard قرار می‌گیرد."
+        ))
+
+        addView(LinearLayout(this@AppSettingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+
+            addView(LinearLayout(this@AppSettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                setPadding(0, 0, dp(8), 0)
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = "کپی خودکار کد در Clipboard"
+                    textSize = 14f
+                    setTextColor(primary)
+                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                })
+                addView(TextView(this@AppSettingsActivity).apply {
+                    text = "فقط کد استخراج‌شده کپی می‌شود"
+                    textSize = 11f
+                    setTextColor(secondary)
+                    setPadding(0, dp(3), 0, 0)
+                })
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+
+            addView(SwitchCompat(this@AppSettingsActivity).apply {
+                isChecked = repository.isAutoCopyEnabled()
+                contentDescription = "کپی خودکار کد تأیید"
+                setOnCheckedChangeListener { _, checked ->
+                    repository.setAutoCopyEnabled(checked)
+                }
+            }, LinearLayout.LayoutParams(dp(52), dp(48)))
+        })
+    }
+
+    private fun buildBatterySettingsCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = roundedBackground(card, 22)
+        elevation = dp(1).toFloat()
+
+        addView(buildSectionHeader(
+            "باتری و اجرای پس‌زمینه",
+            "در بعضی گوشی‌ها، محدودیت باتری می‌تواند اجرای پس‌زمینه و دریافت به‌موقع اعلان‌های پیامک‌یار را محدود کند. برای دریافت مطمئن‌تر اعلان‌ها، تنظیمات باتری برنامه را بررسی کنید و در صورت وجود گزینه‌ای مثل «Unrestricted» یا «No restrictions» آن را انتخاب کنید. این تنظیم توسط خود Android یا رابط سازندهٔ گوشی کنترل می‌شود."
+        ))
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = batteryOptimizationStatus()
+            textSize = 12f
+            setTextColor(secondary)
+            setLineSpacing(0f, 1.12f)
+            setPadding(0, 0, 0, dp(10))
+        })
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = "باز کردن تنظیمات باتری برنامه"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 14)
+            setPadding(dp(10), dp(11), dp(10), dp(11))
+            contentDescription = "باز کردن تنظیمات باتری برنامه"
+            setOnClickListener { openBatterySettings() }
+        }, LinearLayout.LayoutParams(-1, dp(46)))
+    }
+
+    private fun batteryOptimizationStatus(): String {
+        val powerManager = getSystemService(PowerManager::class.java)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            powerManager?.isIgnoringBatteryOptimizations(packageName) == true
+        ) {
+            "بهینه‌سازی باتری در سطح سیستم برای این برنامه نادیده گرفته می‌شود. ممکن است رابط سازنده همچنان گزینه‌های محدودکنندهٔ دیگری داشته باشد."
+        } else {
+            "وضعیت دقیق «Unrestricted / No restrictions» به نسخهٔ Android و رابط سازندهٔ گوشی وابسته است. دکمهٔ زیر تنظیمات باتری برنامه را باز می‌کند تا وضعیت را بررسی کنید."
+        }
+    }
+
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:" + packageName)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure {
+                Toast.makeText(this, "باز کردن تنظیمات برنامه ممکن نشد.", Toast.LENGTH_SHORT).show()
+            }
+    }
 
     private fun buildBackupCard(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -544,6 +653,33 @@ class AppSettingsActivity : BaseActivity() {
                 if (added) recreate()
             }
             .show()
+    }
+
+    private fun buildTrashCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = roundedBackground(card, 22)
+        elevation = dp(1).toFloat()
+
+        addView(buildSectionHeader(
+            "سطل زباله",
+            "پیام‌های حذف‌شدهٔ پیامک‌یار در این بخش نگهداری می‌شوند و SMS اصلی گوشی حذف نمی‌شود. برای مدیریت و بازیابی پیام‌ها، پنجرهٔ سطل زباله را باز کنید."
+        ))
+
+        addView(TextView(this@AppSettingsActivity).apply {
+            text = "مشاهده و بازیابی پیام‌های حذف‌شده"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 14)
+            setPadding(dp(10), dp(11), dp(10), dp(11))
+            contentDescription = "باز کردن سطل زباله"
+            setOnClickListener {
+                startActivity(Intent(this@AppSettingsActivity, TrashActivity::class.java))
+            }
+        }, LinearLayout.LayoutParams(-1, dp(46)))
     }
 
     private fun buildNotificationSettingsCard(): View {

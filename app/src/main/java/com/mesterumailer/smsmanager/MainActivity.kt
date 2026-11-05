@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -14,6 +15,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.format.DateFormat
@@ -29,6 +32,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -42,6 +46,7 @@ import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
 import com.mesterumailer.smsmanager.data.SmsSettingsRepository
+import com.mesterumailer.smsmanager.data.SmsTrashRepository
 import com.mesterumailer.smsmanager.data.InboxReadMode
 import com.mesterumailer.smsmanager.data.InboxSortOrder
 import com.mesterumailer.smsmanager.notification.SmsNotificationManager
@@ -70,10 +75,17 @@ class MainActivity : BaseActivity() {
     private var inboxSortOrder: InboxSortOrder = InboxSortOrder.NEWEST_FIRST
     private lateinit var sortButton: TextView
     private var selectionBar: LinearLayout? = null
+    private lateinit var adBannerContainer: FrameLayout
+    private lateinit var adBannerImage: ImageView
+    private lateinit var adBannerTitle: TextView
+    private lateinit var adBannerDescription: TextView
+    private lateinit var adBannerCta: TextView
+    private var currentHomeAd: HomeAd? = null
     private lateinit var processingOverlay: FrameLayout
     private lateinit var processingMessage: TextView
     private val processingHandler = Handler(Looper.getMainLooper())
     private val processingExecutor = Executors.newSingleThreadExecutor()
+    private val adExecutor = Executors.newSingleThreadExecutor()
     private var processingToken = 0L
     private var processingShowTask: Runnable? = null
 
@@ -86,11 +98,13 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(buildContent())
+        loadHomeAd()
         handleNotificationIntent(intent)
         if (!hasRequiredSmsPermissions()) {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
         } else {
             loadInbox()
+            scheduleBatterySetupPrompt()
         }
     }
 
@@ -127,6 +141,9 @@ class MainActivity : BaseActivity() {
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(listContainer, ViewGroup.LayoutParams(-1, -2))
         }, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8) })
+        main.addView(buildAdBanner(), LinearLayout.LayoutParams(-1, dp(82)).apply {
+            topMargin = dp(8)
+        })
         val contentFrame = FrameLayout(this).apply {
             addView(main, FrameLayout.LayoutParams(-1, -1))
             addView(buildProcessingOverlay(), FrameLayout.LayoutParams(-1, -1))
@@ -202,12 +219,14 @@ class MainActivity : BaseActivity() {
 
         processingExecutor.execute {
             val unblocked = source.filterNot { blockFilter.isBlocked(it.address, it.body) }
-            val filtered = SmsInboxFilter.filter(unblocked, visibleIds, query)
+            val trashedKeys = SmsTrashRepository(this).getKeys()
+            val available = unblocked.filterNot { SmsTrashRepository.keyFor(it) in trashedKeys }
+            val filtered = SmsInboxFilter.filter(available, visibleIds, query)
             val ordered = sortForDisplay(filtered)
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
-                renderFilteredMessages(ordered, unblocked.size, query, token, linkifiedBodies)
+                renderFilteredMessages(ordered, available.size, query, token, linkifiedBodies)
             }
         }
     }
@@ -251,6 +270,118 @@ class MainActivity : BaseActivity() {
         appendChunk()
     }
 
+
+    private fun buildAdBanner(): FrameLayout {
+        val container = FrameLayout(this).apply {
+            visibility = View.GONE
+            background = roundedBackground(getColor(R.color.accent_surface), 18)
+            clipToOutline = true
+            isClickable = true
+            isFocusable = true
+            contentDescription = "بنر تبلیغاتی"
+            setOnClickListener { openHomeAd() }
+        }
+        adBannerContainer = container
+
+        adBannerImage = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            contentDescription = null
+        }
+        container.addView(adBannerImage, FrameLayout.LayoutParams(-1, -1))
+
+        val overlay = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+        }
+        val textColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+        val badge = TextView(this).apply {
+            text = "پیشنهاد آموزشی  •  تبلیغ"
+            textSize = 8.5f
+            setTextColor(getColor(R.color.secondary_text))
+            gravity = Gravity.END
+            setPadding(0, 0, 0, dp(1))
+        }
+        textColumn.addView(badge, LinearLayout.LayoutParams(-1, -2))
+        adBannerTitle = TextView(this).apply {
+            text = "آموزش زبان چینی"
+            textSize = 13f
+            setTextColor(Color.rgb(63, 48, 32))
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.END
+            maxLines = 1
+        }
+        textColumn.addView(adBannerTitle, LinearLayout.LayoutParams(-1, -2))
+        adBannerDescription = TextView(this).apply {
+            text = "یادگیری زبان چینی"
+            textSize = 10f
+            setTextColor(Color.rgb(91, 76, 57))
+            gravity = Gravity.END
+            maxLines = 1
+            setPadding(0, dp(1), 0, dp(3))
+        }
+        textColumn.addView(adBannerDescription, LinearLayout.LayoutParams(-1, -2))
+        adBannerCta = TextView(this).apply {
+            text = "مشاهده سایت  ←"
+            textSize = 9f
+            setTextColor(Color.WHITE)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dp(9), dp(3), dp(9), dp(3))
+            background = roundedRippleBackground(Color.rgb(155, 89, 48), 12)
+            contentDescription = "مشاهده سایت تبلیغ"
+        }
+        textColumn.addView(adBannerCta, LinearLayout.LayoutParams(-2, -2).apply {
+            gravity = Gravity.END
+        })
+        overlay.addView(textColumn, LinearLayout.LayoutParams(0, -1, 1f))
+        // Keep the illustrated part of the background visible on the left.
+        overlay.addView(View(this), LinearLayout.LayoutParams(dp(92), -1))
+        container.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        return container
+    }
+
+    private fun loadHomeAd() {
+        adExecutor.execute {
+            val result = HomeAdService.load(applicationContext)
+            runOnUiThread {
+                if (isFinishing || isDestroyed || !::adBannerContainer.isInitialized) return@runOnUiThread
+                val ad = result.first
+                currentHomeAd = ad
+                if (ad == null) {
+                    adBannerContainer.visibility = View.GONE
+                    return@runOnUiThread
+                }
+                adBannerTitle.text = ad.title
+                adBannerDescription.text = ad.description
+                adBannerCta.text = ad.ctaText + "  ←"
+                adBannerContainer.contentDescription = "تبلیغ: " + ad.title + "؛ برای باز کردن لمس کنید"
+                result.second?.let(adBannerImage::setImageBitmap)
+                adBannerContainer.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun openHomeAd() {
+        val ad = currentHomeAd ?: return
+        val uri = Uri.parse(ad.clickUrl)
+        if (uri.scheme != "https" || uri.host.isNullOrBlank()) {
+            Toast.makeText(this, "پیوند تبلیغ معتبر نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "مرورگری برای باز کردن تبلیغ پیدا نشد.", Toast.LENGTH_SHORT).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "باز کردن پیوند تبلیغ ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private fun buildToolbar(): View = FrameLayout(this).apply {
         background = roundedBackground(cardBackground, 22)
@@ -517,6 +648,7 @@ class MainActivity : BaseActivity() {
         addSelectionAction(this, "همه", "select_all") { toggleSelectAllVisible() }
         addSelectionAction(this, "کپی", "copy") { copySelectedMessages() }
         addSelectionAction(this, "اشتراک", "share") { shareSelectedMessages() }
+        addSelectionAction(this, "حذف", "delete") { confirmDeleteMessages(selectedMessages()) }
         addSelectionAction(this, "لغو", "cancel") { clearSelection() }
     }
 
@@ -719,7 +851,9 @@ class MainActivity : BaseActivity() {
         val blockSettings = SmsBlockRepository(this).getSettings()
         val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
         val unblocked = currentMessages.filterNot { blockFilter.isBlocked(it.address, it.body) }
-        return SmsInboxFilter.filter(unblocked, visibleIds, query)
+        val trashedKeys = SmsTrashRepository(this).getKeys()
+        val available = unblocked.filterNot { SmsTrashRepository.keyFor(it) in trashedKeys }
+        return SmsInboxFilter.filter(available, visibleIds, query)
     }
 
     private fun applyMessageOverrides(messages: List<SmsMessage>): List<SmsMessage> {
@@ -808,6 +942,11 @@ class MainActivity : BaseActivity() {
                 textSize = 14f
                 setTextColor(primaryText)
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                contentDescription = "باز کردن گفت‌وگوی پیامکی با ${message.address}"
+                isFocusable = true
+                background = roundedRippleBackground(getColor(R.color.soft_surface), 8)
+                setPadding(dp(4), dp(5), dp(4), dp(5))
+                setOnClickListener { openSenderConversation(message) }
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             })
             header.addView(TextView(this@MainActivity).apply {
@@ -837,14 +976,6 @@ class MainActivity : BaseActivity() {
                     setOnClickListener { copyText(code) }
                 })
             }
-            message.analysis.amount?.let { amount ->
-                addView(TextView(this@MainActivity).apply {
-                    text = "مبلغ  $amount"
-                    textSize = 13f
-                    setTextColor(getColor(R.color.amount_text))
-                    setPadding(0, dp(8), 0, 0)
-                })
-            }
             addView(TextView(this@MainActivity).apply {
                 text = preparedBody
                 textSize = 14f
@@ -857,10 +988,22 @@ class MainActivity : BaseActivity() {
                 movementMethod = LinkMovementMethod.getInstance()
                 highlightColor = getColor(R.color.body_highlight)
             })
-            addView(LinearLayout(this@MainActivity).apply {
+            val actions = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutDirection = View.LAYOUT_DIRECTION_RTL
                 gravity = Gravity.CENTER_VERTICAL
+
+                addView(TextView(this@MainActivity).apply {
+                    text = "پاسخ"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(accent)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
+                    contentDescription = "پاسخ به پیام"
+                    setOnClickListener { replyToMessage(message) }
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "دسته‌بندی"
                     textSize = 12f
@@ -870,7 +1013,8 @@ class MainActivity : BaseActivity() {
                     background = roundedRippleBackground(getColor(R.color.accent_surface), 12)
                     contentDescription = "تغییر دسته‌بندی پیام"
                     setOnClickListener { showCategoryDialog(message) }
-                }, LinearLayout.LayoutParams(-2, dp(40)))
+                }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "کپی متن"
                     textSize = 12f
@@ -880,6 +1024,7 @@ class MainActivity : BaseActivity() {
                     background = roundedRippleBackground(getColor(R.color.icon_surface), 12)
                     setOnClickListener { copyText(message.body) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
                 addView(TextView(this@MainActivity).apply {
                     text = "مسدودسازی"
                     textSize = 12f
@@ -890,6 +1035,24 @@ class MainActivity : BaseActivity() {
                     contentDescription = "مسدود کردن فرستنده " + message.address
                     setOnClickListener { confirmBlockSender(message) }
                 }, LinearLayout.LayoutParams(-2, dp(40)).apply { marginEnd = dp(8) })
+
+                addView(TextView(this@MainActivity).apply {
+                    text = "حذف"
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(getColor(R.color.promotion_text))
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    background = roundedRippleBackground(getColor(R.color.reset_surface), 12)
+                    contentDescription = "حذف پیام"
+                    setOnClickListener { confirmDeleteMessages(listOf(message)) }
+                }, LinearLayout.LayoutParams(-2, dp(40)))
+            }
+
+            addView(HorizontalScrollView(this@MainActivity).apply {
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                addView(actions, ViewGroup.LayoutParams(-2, dp(40)))
             }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) })
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
@@ -977,6 +1140,72 @@ class MainActivity : BaseActivity() {
                     requestRender("در حال به‌روزرسانی Inbox...")
                     Toast.makeText(this, "این فرستنده از قبل در فهرست مسدودی‌هاست.", Toast.LENGTH_SHORT).show()
                 }
+            }
+            .show()
+    }
+
+    private fun openSenderConversation(message: SmsMessage) {
+        val address = message.address.trim()
+        if (address.isBlank()) {
+            Toast.makeText(this, "شماره یا شناسه فرستنده در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ACTION_VIEW with an sms: URI asks Android's default messaging app to open
+        // the conversation for this sender, without making this app the default SMS app.
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("sms:" + Uri.encode(address))
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "برنامهٔ پیامک برای باز کردن گفت‌وگو پیدا نشد.", Toast.LENGTH_SHORT).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, "باز کردن گفت‌وگوی پیامکی ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun replyToMessage(message: SmsMessage) {
+        val address = message.address.trim()
+        if (address.isBlank()) {
+            Toast.makeText(this, "شماره فرستنده برای پاسخ در دسترس نیست.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:" + Uri.encode(address))
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "برنامهٔ پیامک برای پاسخ‌گویی پیدا نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun confirmDeleteMessages(messages: List<SmsMessage>) {
+        val uniqueMessages = messages.distinctBy { SmsTrashRepository.keyFor(it) }
+        if (uniqueMessages.isEmpty()) {
+            Toast.makeText(this, "پیامی برای حذف انتخاب نشده است.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val count = uniqueMessages.size
+        val targetText = if (count == 1) "این پیام" else "این $count پیام"
+        AlertDialog.Builder(this)
+            .setTitle(if (count == 1) "حذف پیام" else "حذف پیام‌ها")
+            .setMessage(
+                "$targetText به سطل زباله پیامک‌یار منتقل می‌شود. " +
+                    "پیامک اصلی گوشی حذف یا تغییر نمی‌کند و می‌توانید بعداً آن را از سطل زباله بازیابی کنید. ادامه می‌دهید؟"
+            )
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("حذف") { _, _ ->
+                SmsTrashRepository(this).add(uniqueMessages)
+                selectedIds.removeAll(uniqueMessages.map { it.id }.toSet())
+                requestRender("در حال انتقال پیام به سطل زباله...")
+                Toast.makeText(
+                    this,
+                    if (count == 1) "پیام به سطل زباله منتقل شد." else "$count پیام به سطل زباله منتقل شدند.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             .show()
     }
@@ -1089,9 +1318,42 @@ class MainActivity : BaseActivity() {
     override fun onDestroy() {
         processingShowTask?.let(processingHandler::removeCallbacks)
         processingExecutor.shutdownNow()
+        adExecutor.shutdownNow()
         super.onDestroy()
     }
 
+    private fun scheduleBatterySetupPrompt() {
+        window?.decorView?.postDelayed({
+            if (!isFinishing && !isDestroyed) maybePromptBatterySetup()
+        }, 500L)
+    }
+
+    private fun maybePromptBatterySetup() {
+        val preferences = getSharedPreferences(BATTERY_PROMPT_PREFERENCES, MODE_PRIVATE)
+        if (preferences.getBoolean(KEY_BATTERY_PROMPT_SHOWN, false)) return
+        preferences.edit().putBoolean(KEY_BATTERY_PROMPT_SHOWN, true).apply()
+
+        AlertDialog.Builder(this)
+            .setTitle("دریافت مطمئن‌تر اعلان‌ها")
+            .setMessage(
+                "در بعضی گوشی‌ها محدودیت باتری می‌تواند باعث تأخیر یا توقف دریافت اعلان‌های پیامک‌یار در پس‌زمینه شود. " +
+                    "اگر می‌خواهید پیامک‌یار برای اعلان‌های پس‌زمینه محدودیت کمتری داشته باشد، تنظیمات باتری این برنامه را بررسی کنید و در صورت وجود گزینه‌ای مثل «Unrestricted» یا «No restrictions» آن را انتخاب کنید."
+            )
+            .setNegativeButton("فعلاً نه", null)
+            .setPositiveButton("رفتن به تنظیمات") { _, _ -> openBatterySettings() }
+            .show()
+    }
+
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:" + packageName)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "باز کردن تنظیمات برنامه ممکن نشد.", Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun hasRequiredSmsPermissions(): Boolean =
         checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
@@ -1165,10 +1427,16 @@ class MainActivity : BaseActivity() {
         if (requestCode != smsPermissionRequestCode) return
         if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
             loadInbox()
+            scheduleBatterySetupPrompt()
         } else {
             statusView.text = "دسترسی‌های لازم پیامک فعال نشد."
         }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private companion object {
+        const val BATTERY_PROMPT_PREFERENCES = "app_onboarding"
+        const val KEY_BATTERY_PROMPT_SHOWN = "battery_setup_prompt_shown"
+    }
+
 }

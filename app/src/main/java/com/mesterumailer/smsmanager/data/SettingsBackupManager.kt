@@ -24,7 +24,8 @@ data class SettingsBackupSnapshot(
     val rules: List<FilterRule>,
     val categoryActivation: Map<String, Boolean>,
     val categoryVisibility: Map<String, Boolean>,
-    val notifications: Map<String, NotificationBackupSetting>
+    val notifications: Map<String, NotificationBackupSetting>,
+    val otpAutoCopyEnabled: Boolean
 )
 
 /**
@@ -47,6 +48,7 @@ object SettingsBackupManager {
         val activationRepository = CategoryActivationRepository(context)
         val visibilityRepository = CategoryVisibilityRepository(context)
         val notificationRepository = SmsNotificationSettingsRepository(context)
+        val otpSettingsRepository = SmsOtpSettingsRepository(context)
 
         val rulesArray = JSONArray()
         rules.forEach { rulesArray.put(it.toJson()) }
@@ -84,6 +86,9 @@ object SettingsBackupManager {
                 put("visibility", visibility)
             })
             put("notifications", notifications)
+            put("otp", JSONObject().apply {
+                put("autoCopyCode", otpSettingsRepository.isAutoCopyEnabled())
+            })
         }.toString(2)
     }
 
@@ -181,7 +186,8 @@ object SettingsBackupManager {
             rules = rules,
             categoryActivation = activation,
             categoryVisibility = visibility,
-            notifications = notifications
+            notifications = notifications,
+            otpAutoCopyEnabled = parseOtpAutoCopy(root)
         )
     }
 
@@ -217,6 +223,14 @@ object SettingsBackupManager {
                 setSoundUri(id, setting?.soundUri?.let(Uri::parse))
             }
         }
+        SmsOtpSettingsRepository(context).setAutoCopyEnabled(snapshot.otpAutoCopyEnabled)
+    }
+
+    private fun parseOtpAutoCopy(root: JSONObject): Boolean {
+        val otp = root.optJSONObject("otp") ?: return true
+        if (!otp.has("autoCopyCode")) return true
+        return otp.opt("autoCopyCode") as? Boolean
+            ?: invalid("تنظیم کپی خودکار کد تأیید در فایل پشتیبان معتبر نیست.")
     }
 
     private fun requiredObject(source: JSONObject, key: String): JSONObject =

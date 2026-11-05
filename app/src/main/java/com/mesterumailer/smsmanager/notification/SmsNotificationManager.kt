@@ -87,7 +87,8 @@ object SmsNotificationManager {
         address: String,
         body: String,
         timestamp: Long,
-        soundUri: Uri?
+        soundUri: Uri?,
+        otpCode: String? = null
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -116,11 +117,14 @@ object SmsNotificationManager {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val notificationText = otpCode?.let { "کد تأیید: $it" } ?: preview(body)
+        val expandedText = otpCode?.let { "کد تأیید: $it\n\n$body" } ?: body
+
         val builder = NotificationCompat.Builder(context, targetChannelId)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(address.ifBlank { "پیامک جدید" })
-            .setContentText(preview(body))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(notificationText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

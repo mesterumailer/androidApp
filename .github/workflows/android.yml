@@ -28,6 +28,38 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Set up Node.js for Cloudflare Worker tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test Cloudflare Ads Worker
+        working-directory: cloudflare-ad-worker
+        run: npm test
+
+      - name: Validate D1 migration and embedded banner image
+        run: |
+          python - <<'PY'
+          import base64
+          import pathlib
+          import sqlite3
+
+          sql = pathlib.Path("cloudflare-ad-worker/migrations/0001_ads.sql").read_text(encoding="utf-8")
+          db = sqlite3.connect(":memory:")
+          db.executescript(sql)
+          row = db.execute(
+              "SELECT title, target_url, image_mime, image_base64 FROM ads WHERE slug = ?",
+              ("yajing-chinese",),
+          ).fetchone()
+          assert row is not None, "Initial Yajing ad was not seeded"
+          assert row[0] == "آموزش زبان چینی"
+          assert row[1] == "https://yajingchinese.ir"
+          assert row[2] == "image/webp"
+          image = base64.b64decode(row[3], validate=True)
+          assert image[:4] == b"RIFF" and image[8:12] == b"WEBP", "Seeded image is not a WebP file"
+          print(f"D1 seed is valid; banner image is {len(image)} bytes")
+          PY
+
       - name: Build debug APK and run unit tests
         run: gradle testDebugUnitTest assembleDebug --no-daemon
 

@@ -11,8 +11,8 @@ android {
         applicationId = "com.mesterumailer.smsmanager"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.8.0"
+        versionCode = 17
+        versionName = "0.10.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
