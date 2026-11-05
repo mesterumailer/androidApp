@@ -4,189 +4,120 @@ import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsAnalysis
 import com.mesterumailer.smsmanager.model.SmsCategory
 
-class SmsClassifier(private val rules: List<FilterRule>) {
-    private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
-    private val codeForLoginRegex = Regex(
-        "کد\\s*[:：]?\\s*\\d{4,8}[\\s\\S]{0,50}(?:ورود|سامانه|وارد\\s+(?:کنید|نمایید))"
+/**
+ * Offline weighted classifier. Phrase evidence is counted once per message;
+ * sender evidence is multiplied by senderWeight (default 2).
+ */
+class SmsClassifier(
+    private val rules: List<FilterRule>,
+    private val senderWeight: Int = DEFAULT_SENDER_WEIGHT
+) {
+    private val numberRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
+
+    private val textWeights = mapOf(
+        "otp" to weights(
+            10 to listOf("کد بازیابی رمز عبور", "کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "رمز یک بار مصرف", "کد تایید", "کد تأیید", "کد ورود", "کد امنیتی", "کد اعتبارسنجی", "verification code"),
+            8 to listOf("بازیابی رمز", "جهت ورود", "وارد نمایید", "وارد کنید"),
+            -10 to listOf("کد تخفیف", "کد درگاه")
+        ),
+        "transaction" to weights(
+            10 to listOf("واریز حقوق", "برداشت مبلغ", "واریز مبلغ", "انتقال وجه", "انتقال به", "کارت به کارت", "تراکنش حسابی", "با موفقیت پرداخت شد"),
+            9 to listOf("قسط:", "انتقال:", "واریز:", "برداشت:", "خرید مجموعه", "خرید دیجی کالا"),
+            7 to listOf("مبلغ", "پرداخت", "خرید", "واریز", "برداشت", "قسط"),
+            3 to listOf("رمز", "کارت"),
+            -10 to listOf("پیشنهاد وام", "وام ویژه", "خرید اقساطی", "پرداخت اقساطی", "دریافت وام", "کد بازیابی رمز عبور")
+        ),
+        "delivery" to weights(
+            10 to listOf("کد رهگیری مرسوله", "مرسوله پستی", "موقعیت گیرنده بسته", "پستچی", "توزیع مرسوله", "تحویل پست", "رهگیری سفارش"),
+            8 to listOf("ارسال خواهد گردید", "به زودی به شما تحویل", "پست شد", "بسته با کد", "پیک"),
+            6 to listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax"),
+            -8 to listOf("تحویل گرفتید", "تحویل بگیرید")
+        ),
+        "promotion" to weights(
+            10 to listOf("پیشنهاد ویژه", "تخفیف", "جایزه", "کمپین", "قرعه کشی", "رزرو میز", "تهیه بلیت", "کنسرت", "dj night", "ثبت نام رایگان", "خرید میوه", "خرید صبحانه", "خلاصه رایگان کتاب", "نشست تخصصی", "پخش زنده", "وام بانکی ویژه", "دریافت وام", "ویژه مهندس"),
+            8 to listOf("هدیه", "شانس", "امتیاز", "پیشنهاد", "آموزش", "کلاس", "مصاحبه", "سئو", "کیورد ریسرچ", "بازارگان", "رایگان", "اقساطی"),
+            6 to listOf("لغو 11", "لغو۱۱", "همین الان", "ثبت نام", "خرید"),
+            -10 to listOf("تراکنش حسابی", "واریز حقوق", "با موفقیت پرداخت شد", "کد بازیابی رمز عبور", "مرسوله پستی")
+        ),
+        "service" to weights(
+            10 to listOf("نظرسنجی", "تجربه استفاده", "وضعیت انجام شده", "کنسل شد", "تیکت شماره", "پاسخ داده شد", "ورود به سایت", "ورود به سامانه", "کارت بانکی", "در وضعیت تایید", "در وضعیت در حال بررسی", "اعتبار قابل مصرف", "مالیات عملکرد", "پلیس امنیت اقتصادی"),
+            8 to listOf("اطلاع رسانی", "پشتیبانی", "راهنمای مشتری", "سامانه", "ثبت نام تکمیلی", "ستاد خبری", "تجربه شما", "خدمات"),
+            5 to listOf("درخواست", "اعلان", "ورود"),
+            -10 to listOf("تخفیف", "جایزه", "پیشنهاد ویژه", "خرید میوه", "پخش زنده", "دریافت وام")
+        )
     )
 
-    private val otpPhrases = listOf(
-        "رمز پویا", "رمز یکبار مصرف", "رمز یک بار مصرف", "رمز یک‌بار مصرف",
-        "کد تایید", "کد تأیید", "کد ورود", "کد امنیتی", "کد اعتبارسنجی",
-        "verification code", "one-time password", "one time password"
-    )
-
-    private val bankSenderMarkers = listOf(
-        "bank", "بانک", "melli", "tejarat", "sepah", "shaparak",
-        "saman", "pasargad", "resalat", "melat", "mellat"
-    )
-
-    private val bankBodyMarkers = listOf(
-        "بانک ملی", "بانک سپه", "بانک تجارت", "بانك ملي", "بانک ملت",
-        "پرداخت الکترونیک سامان", "شاپرک", "همراه بانک"
-    )
-
-    private val moneyAmountPattern = Regex(
-        "(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,]+"
-    )
-
-    private val deliveryStrongMarkers = listOf(
-        "مرسوله", "پستچی", "کد رهگیری مرسوله", "رهگیری پست",
-        "تحویل پست", "پست شد", "توزیع مرسوله",
-        "tracking.post.ir", "tracking.post"
-    )
-
-    private val promotionMarkers = listOf(
-        "تخفیف", "تخفیفی", "حراج", "پیشنهاد ویژه", "کد تخفیف",
-        "فروش ویژه", "جشنواره", "کف خرید", "حداقل خرید", "خرید اقساطی",
-        "اقساطی", "اعتبارت بخر", "هدیه", "جایزه", "کمپین",
-        "ثبت نام رایگان", "رایگان", "تهیه بلیت", "تهیه بلیط",
-        "خرید بلیت", "خرید بلیط", "کنسرت", "dj night", "رزرو میز",
-        "کلاس", "قبولی", "مصاحبه", "خلاصه رایگان کتاب", "استعلام قیمت",
-        "مشاوره تخصصی", "اجرای تخصصی", "کیورد ریسرچ", "سئو",
-        "seo", "ابزار geo", "به مشتریای مرتبط", "فروشگاه اینترنتی",
-        "بیمه البرز درمان", "ویژه مهندس", "ویژه مهندسان",
-        "معرفی کن", "prize"
+    private val senderWeights = mapOf(
+        "transaction" to mapOf("tejaratbank" to 8, "b.qmehriran" to 9, "بانک مهر" to 8, "بانک ملی" to 8, "bank melli" to 8, "بانک تجارت" to 8, "بانک سپه" to 8, "بانک ملت" to 8, "shaparak" to 7),
+        "service" to mapOf("تهران پیمنت" to 4, "98200090070" to 4, "digipay" to 3, "دیجی پی" to 3, "کافه ارز" to 3, "ایساکو" to 3),
+        "delivery" to mapOf("tipax" to 9, "تیپاکس" to 9, "iran post" to 9, "پست" to 7, "snappfood" to 3),
+        "promotion" to mapOf("snapp" to 3, "mci club" to 5, "azkivam" to 6, "dk sellers" to 4, "mci academy" to 5),
+        "otp" to mapOf("تهران پیمنت" to 2, "98200090070" to 2)
     )
 
     fun analyze(address: String, body: String): SmsAnalysis {
-        val normalizedBody = normalize(body)
-        val normalizedSender = normalize(address)
-        val transactionEvidence = hasTransactionEvidence(normalizedSender, normalizedBody)
-        val deliveryEvidence = hasDeliveryEvidence(normalizedBody)
-        val forcedOtpRule = rules.firstOrNull { it.categoryId == "otp" }
-            ?.takeIf { hasOtpEvidence(normalizedBody, transactionEvidence) }
+        val sender = normalize(address)
+        val text = normalize(body)
+        val scores = linkedMapOf<String, Int>()
 
-        val candidates = rules.mapNotNull { rule ->
-            val score = score(
-                rule = rule,
-                sender = normalizedSender,
-                body = normalizedBody,
-                transactionEvidence = transactionEvidence,
-                deliveryEvidence = deliveryEvidence
-            )
-            if (score <= 0) null else rule to score
-        }.sortedWith(
-            compareByDescending<Pair<FilterRule, Int>> { it.second }
-                .thenByDescending { it.first.priority }
-        )
+        rules.forEach { rule ->
+            val category = rule.categoryId
+            val phraseMap = textWeights[category]
+            var score = 0
 
-        val winningRule = forcedOtpRule ?: candidates.firstOrNull()?.first
-        val categoryId = winningRule?.categoryId ?: SmsCategory.UNKNOWN.id
-        val category = SmsCategory.fromId(categoryId)
-
-        // Amount extraction remains intentionally disabled.
-        val otp = otpRegex.find(normalizedBody)?.value
-        val confidence = if (forcedOtpRule != null) {
-            1f
-        } else {
-            candidates.firstOrNull()?.second?.let {
-                (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
-            } ?: 0f
+            if (phraseMap != null) {
+                phraseMap.forEach { (phrase, value) ->
+                    if (normalize(phrase) in text) score += value
+                }
+                senderWeights[category].orEmpty().forEach { (alias, value) ->
+                    if (normalize(alias) in sender) score += value * senderWeight.coerceIn(0, 5)
+                }
+            } else {
+                rule.anyKeywords.distinct().forEach { if (normalize(it) in text) score += 3 }
+                rule.requiredKeywords.distinct().forEach { score += if (normalize(it) in text) 5 else -10 }
+                rule.excludedKeywords.distinct().forEach { if (normalize(it) in text) score -= 10 }
+                rule.senderContains.distinct().forEach { if (normalize(it) in sender) score += 2 * senderWeight.coerceIn(0, 5) }
+            }
+            scores[category] = score
         }
 
+        val hasCode = numberRegex.containsMatchIn(text)
+        val hasOtpIntent = listOf("کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود")
+            .any { normalize(it) in text }
+        if (!hasCode || !hasOtpIntent) scores["otp"] = minOf(scores["otp"] ?: 0, 0)
+
+        val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+").containsMatchIn(text)
+        val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:")
+            .any { normalize(it) in text }
+        if (!hasAmount || !hasMoneyAction) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
+
+        val hasParcelContext = listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax", "پستچی", "پست شد")
+            .any { normalize(it) in text }
+        if (!hasParcelContext) scores["delivery"] = minOf(scores["delivery"] ?: 0, 0)
+
+        val ranked = scores.entries.sortedByDescending { it.value }
+        val first = ranked.firstOrNull()?.takeIf { it.value > 0 }
+        val second = ranked.getOrNull(1)
+        val winner = first?.takeIf { second == null || it.value - second.value >= MINIMUM_SCORE_MARGIN }
+        val categoryId = winner?.key ?: SmsCategory.UNKNOWN.id
+        val confidence = winner?.let { (it.value.toFloat() / (it.value + (second?.value?.coerceAtLeast(0) ?: 0) + 1)).coerceIn(0f, 1f) } ?: 0f
+
         return SmsAnalysis(
-            category = category,
+            category = SmsCategory.fromId(categoryId),
             categoryId = categoryId,
-            otpCode = otp,
+            otpCode = if (categoryId == "otp") numberRegex.find(text)?.value else null,
             amount = null,
             confidence = confidence
         )
     }
 
-    private fun hasOtpEvidence(body: String, transactionEvidence: Boolean): Boolean {
-        if (transactionEvidence || !otpRegex.containsMatchIn(body)) return false
-        return otpPhrases.any { normalize(it) in body } ||
-            codeForLoginRegex.containsMatchIn(body)
-    }
+    private fun weights(vararg groups: Pair<Int, List<String>>): Map<String, Int> =
+        buildMap { groups.forEach { (value, phrases) -> phrases.forEach { put(it, value.coerceIn(-10, 10)) } } }
 
-    private fun hasBankContext(sender: String, body: String): Boolean {
-        return bankSenderMarkers.any { normalize(it) in sender } ||
-            bankBodyMarkers.any { normalize(it) in body }
-    }
-
-    private fun hasTransactionEvidence(sender: String, body: String): Boolean {
-        val bankContext = hasBankContext(sender, body)
-        val hasNumericAmount = moneyAmountPattern.containsMatchIn(body)
-
-        // Compact bank statement lines: "واریز:...", "قسط:...", "انتقال:...".
-        val compactBankLine = Regex(
-            "(?:واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,]+\\s*[+-]?"
-        ).containsMatchIn(body)
-        if (compactBankLine && bankContext) return true
-
-        // Multi-line bank purchase: "خرید / merchant / مبلغ ... / رمز ...".
-        if (bankContext && "خرید" in body &&
-            Regex("مبلغ\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
-        ) return true
-
-        // A transfer/card-to-card notification needs both a numeric amount and bank context.
-        if (bankContext && hasNumericAmount &&
-            ("انتقال وجه" in body || "انتقال به" in body || "کارت به کارت" in body)
-        ) return true
-
-        // Transaction account notices use this explicit phrase with an amount.
-        if ("تراکنش حسابی" in body && hasNumericAmount) return true
-
-        // A successful installment payment is an actual payment, not a reminder.
-        if ("پرداخت قسط" in body && "با موفقیت پرداخت شد" in body) return true
-
-        // Explicit credit/debit notices with amount are accepted even from payment gateways.
-        return hasNumericAmount &&
-            ("واریز مبلغ" in body || "برداشت مبلغ" in body)
-    }
-
-    private fun hasDeliveryEvidence(body: String): Boolean {
-        // Generic words such as "تحویل" or "رهگیری" are insufficient on their own.
-        if (deliveryStrongMarkers.any { normalize(it) in body }) return true
-
-        val orderAndCourier =
-            "سفارش" in body &&
-            ("پیک" in body || "تحویل داده می شود" in body || "تحویل می شود" in body)
-        if (orderAndCourier) return true
-
-        val parcelAndDistribution =
-            ("مرسوله" in body || "بسته پستی" in body || "مرسوله پستی" in body) &&
-            ("ارسال" in body || "توزیع" in body || "مراجعه" in body || "ثبت گردید" in body)
-        return parcelAndDistribution
-    }
-
-    private fun score(
-        rule: FilterRule,
-        sender: String,
-        body: String,
-        transactionEvidence: Boolean,
-        deliveryEvidence: Boolean
-    ): Int {
-        if (rule.categoryId == "transaction" && !transactionEvidence) return 0
-        if (rule.categoryId == "delivery" && !deliveryEvidence) return 0
-        if (rule.categoryId == "promotion" &&
-            (transactionEvidence || deliveryEvidence && "پیشنهاد" !in body)
-        ) return 0
-        if (rule.categoryId == "service" && (transactionEvidence || deliveryEvidence)) return 0
-        if (rule.excludedKeywords.any { normalize(it) in body }) return 0
-
-        val anyHits = rule.anyKeywords.count { normalize(it) in body }
-        if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches) return 0
-
-        val requiredMisses = rule.requiredKeywords.count { normalize(it) !in body }
-        if (requiredMisses > 0) return 0
-
-        val senderHits = rule.senderContains.count { normalize(it) in sender }
-        if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return 0
-
-        // A sender match is supporting evidence, never enough to label an SMS financial or delivery.
-        val score = (anyHits * 2) + (senderHits * 2) + (rule.requiredKeywords.size * 3)
-        return if (score > 0) score + rule.priority.coerceIn(0, 100) / 10 else 0
-    }
-
-    private fun normalize(value: String): String = normalizeDigits(value)
-        .lowercase()
-        .replace('ي', 'ی')
-        .replace('ك', 'ک')
+    private fun normalize(value: String): String = normalizeDigits(value).lowercase()
+        .replace('ي', 'ی').replace('ك', 'ک')
         .replace(Regex("[\\u200c\\u200d]"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+        .replace(Regex("\\s+"), " ").trim()
 
     private fun normalizeDigits(value: String): String = value.map {
         when (it) {
@@ -197,4 +128,9 @@ class SmsClassifier(private val rules: List<FilterRule>) {
             else -> it
         }
     }.joinToString("")
+
+    companion object {
+        const val DEFAULT_SENDER_WEIGHT = 2
+        const val MINIMUM_SCORE_MARGIN = 2
+    }
 }
