@@ -788,7 +788,12 @@ class MainActivity : BaseActivity() {
                     blockedContent = blockSettings.blockedContent
                 )
                 val messages = applyMessageOverrides(
-                    SmsRepository(contentResolver, classificationRules, blockFilter).getInbox(
+                    SmsRepository(
+                        contentResolver,
+                        classificationRules,
+                        blockFilter,
+                        FilterRuleRepository(this@MainActivity).getSenderWeight()
+                    ).getInbox(
                         limit = readSettings.limit,
                         untilTimestampExclusive = untilTimestampExclusive
                     )
