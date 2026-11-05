@@ -26,17 +26,14 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         "پرداخت الکترونیک سامان", "شاپرک", "همراه بانک"
     )
 
-    private val explicitMoneyEvents = listOf(
-        "واریز مبلغ", "برداشت مبلغ", "انتقال وجه", "کارت به کارت",
-        "پرداخت قسط قرارداد", "با موفقیت پرداخت شد", "تراکنش حسابی",
-        "واریز:", "برداشت:", "انتقال:"
+    private val moneyAmountPattern = Regex(
+        "(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,]+"
     )
 
     private val deliveryStrongMarkers = listOf(
         "مرسوله", "پستچی", "کد رهگیری مرسوله", "رهگیری پست",
-        "تحویل پست", "پست شد", "پستی شما", "توزیع مرسوله",
-        "پیک", "courier", "shipment", "tracking.post.ir",
-        "tracking.post"
+        "تحویل پست", "پست شد", "توزیع مرسوله",
+        "tracking.post.ir", "tracking.post"
     )
 
     private val promotionMarkers = listOf(
@@ -109,31 +106,34 @@ class SmsClassifier(private val rules: List<FilterRule>) {
     }
 
     private fun hasTransactionEvidence(sender: String, body: String): Boolean {
-        if (explicitMoneyEvents.any { normalize(it) in body }) return true
+        val bankContext = hasBankContext(sender, body)
+        val hasNumericAmount = moneyAmountPattern.containsMatchIn(body)
 
-        // Bank statement templates often use compact labels rather than prose.
-        val compactDebitOrCredit = Regex(
+        // Compact bank statement lines: "واریز:...", "قسط:...", "انتقال:...".
+        val compactBankLine = Regex(
             "(?:واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,]+\\s*[+-]?"
         ).containsMatchIn(body)
-        if (compactDebitOrCredit && hasBankContext(sender, body)) return true
+        if (compactBankLine && bankContext) return true
 
-        // Purchase SMS from a bank: "خرید / merchant / مبلغ 123,456 / رمز 123456".
-        val bankPurchaseWithAmount =
-            hasBankContext(sender, body) &&
-            "خرید" in body &&
+        // Multi-line bank purchase: "خرید / merchant / مبلغ ... / رمز ...".
+        if (bankContext && "خرید" in body &&
             Regex("مبلغ\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
-        if (bankPurchaseWithAmount) return true
+        ) return true
 
-        // "انتقال به ... مبلغ ..." is a bank transfer even when the word انتقال وجه is absent.
-        val bankTransferWithAmount =
-            hasBankContext(sender, body) &&
-            "انتقال به" in body &&
-            Regex("مبلغ\\s*[:：]?\\s*[\\d,]+").containsMatchIn(body)
-        if (bankTransferWithAmount) return true
+        // A transfer/card-to-card notification needs both a numeric amount and bank context.
+        if (bankContext && hasNumericAmount &&
+            ("انتقال وجه" in body || "انتقال به" in body || "کارت به کارت" in body)
+        ) return true
 
-        // Successful installment payment is a financial event, not a service reminder.
-        return "پرداخت قسط" in body &&
-            ("با موفقیت پرداخت شد" in body || "قرارداد" in body)
+        // Transaction account notices use this explicit phrase with an amount.
+        if ("تراکنش حسابی" in body && hasNumericAmount) return true
+
+        // A successful installment payment is an actual payment, not a reminder.
+        if ("پرداخت قسط" in body && "با موفقیت پرداخت شد" in body) return true
+
+        // Explicit credit/debit notices with amount are accepted even from payment gateways.
+        return hasNumericAmount &&
+            ("واریز مبلغ" in body || "برداشت مبلغ" in body)
     }
 
     private fun hasDeliveryEvidence(body: String): Boolean {
