@@ -7,7 +7,7 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
     private val codeForLoginRegex = Regex(
-        "کد\\\\s*[:：]?\\\\s*\\\\d{4,8}[\\\\s\\\\S]{0,50}(?:ورود|سامانه|وارد\\\\s+(?:کنید|نمایید))"
+        "کد\\s*[:：]?\\s*\\d{4,8}[\\s\\S]{0,50}(?:ورود|سامانه|وارد\\s+(?:کنید|نمایید))"
     )
 
     private val otpPhrases = listOf(
