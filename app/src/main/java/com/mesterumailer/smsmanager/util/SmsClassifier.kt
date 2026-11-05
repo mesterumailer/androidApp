@@ -6,29 +6,51 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 
 class SmsClassifier(private val rules: List<FilterRule>) {
     private val otpRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
+    private val codeForLoginRegex = Regex(
+        """کد\\s*[:：]?\\s*\\d{4,8}[\\s\\S]{0,50}(?:ورود|سامانه|وارد\\s+(?:کنید|نمایید))"""
+    )
+
+    private val otpPhrases = listOf(
+        "رمز پویا", "رمز یکبار مصرف", "رمز یک بار مصرف", "رمز یک‌بار مصرف",
+        "کد تایید", "کد تأیید", "کد ورود", "کد امنیتی", "کد اعتبارسنجی",
+        "verification code", "one-time password", "one time password"
+    )
+
+    private val transactionEvidencePhrases = listOf(
+        "واریز:", "واریز مبلغ", "برداشت:", "برداشت مبلغ", "انتقال وجه", "انتقال به",
+        "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط قرارداد",
+        "پرداخت قسط", "با موفقیت پرداخت شد"
+    )
 
     fun analyze(address: String, body: String): SmsAnalysis {
         val normalizedBody = normalize(body)
         val normalizedSender = normalize(address)
+        val transactionEvidence = hasTransactionEvidence(normalizedBody)
+        val forcedOtpRule = rules.firstOrNull { it.categoryId == "otp" }
+            ?.takeIf { hasOtpEvidence(normalizedBody, transactionEvidence) }
 
         val candidates = rules.mapNotNull { rule ->
-            val score = score(rule, normalizedSender, normalizedBody)
+            val score = score(rule, normalizedSender, normalizedBody, transactionEvidence)
             if (score <= 0) null else rule to score
         }.sortedWith(
             compareByDescending<Pair<FilterRule, Int>> { it.second }
                 .thenByDescending { it.first.priority }
         )
 
-        val winningRule = candidates.firstOrNull()?.first
+        val winningRule = forcedOtpRule ?: candidates.firstOrNull()?.first
         val categoryId = winningRule?.categoryId ?: SmsCategory.UNKNOWN.id
         val category = SmsCategory.fromId(categoryId)
 
         // Amount extraction is intentionally disabled for now to keep Inbox
         // loading/filtering focused on the active classification features.
         val otp = otpRegex.find(normalizedBody)?.value
-        val confidence = candidates.firstOrNull()?.second?.let {
-            (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
-        } ?: 0f
+        val confidence = if (forcedOtpRule != null) {
+            1f
+        } else {
+            candidates.firstOrNull()?.second?.let {
+                (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f)
+            } ?: 0f
+        }
 
         return SmsAnalysis(
             category = category,
@@ -39,7 +61,24 @@ class SmsClassifier(private val rules: List<FilterRule>) {
         )
     }
 
-    private fun score(rule: FilterRule, sender: String, body: String): Int {
+    private fun hasOtpEvidence(body: String, transactionEvidence: Boolean): Boolean {
+        if (transactionEvidence || !otpRegex.containsMatchIn(body)) return false
+        return otpPhrases.any { normalize(it) in body } || codeForLoginRegex.containsMatchIn(body)
+    }
+
+    private fun hasTransactionEvidence(body: String): Boolean {
+        if (transactionEvidencePhrases.any { normalize(it) in body }) return true
+        return Regex("""(?:واریز|برداشت)\\s*[:：]?\\s*[\\d,]+""").containsMatchIn(body)
+    }
+
+    private fun score(
+        rule: FilterRule,
+        sender: String,
+        body: String,
+        transactionEvidence: Boolean
+    ): Int {
+        if (rule.categoryId == "transaction" && !transactionEvidence) return 0
+        if (rule.categoryId == "promotion" && transactionEvidence) return 0
         if (rule.excludedKeywords.any { normalize(it) in body }) return 0
 
         val anyHits = rule.anyKeywords.count { normalize(it) in body }
