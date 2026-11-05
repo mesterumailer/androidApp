@@ -103,16 +103,17 @@ class SmsClassifier(
         }
 
         val hasCode = numberRegex.containsMatchIn(text)
-        val hasOtpIntent = listOf("کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود")
-            .any { normalize(it) in text }
+        val hasOtpIntent = listOf("کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود", "جهت ورود", "وارد نمایید")
+            .any { normalize(it) in text } && "کد" in text
         if (!hasCode || !hasOtpIntent) scores["otp"] = minOf(scores["otp"] ?: 0, 0)
 
         val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+|[\\d,۰-۹]+\\s*(?:ریال|تومان)").containsMatchIn(text)
         val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:")
             .any { normalize(it) in text }
-        if (!hasAmount || !hasMoneyAction) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
+        val completedInstallment = "پرداخت قسط قرارداد" in text && "با موفقیت پرداخت شد" in text
+        if ((!hasAmount || !hasMoneyAction) && !completedInstallment) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
 
-        val hasParcelContext = listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax", "پستچی", "پست شد")
+        val hasParcelContext = listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax", "پستچی", "پست شد", "رهگیری سفارش", "توسط پیک")
             .any { normalize(it) in text }
         if (!hasParcelContext) scores["delivery"] = minOf(scores["delivery"] ?: 0, 0)
 
