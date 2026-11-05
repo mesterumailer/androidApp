@@ -1,5 +1,6 @@
 package com.mesterumailer.smsmanager.util
 
+import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsAnalysis
 import com.mesterumailer.smsmanager.model.SmsCategory
@@ -56,7 +57,8 @@ class SmsClassifier(
     )
 
     fun analyze(address: String, body: String): SmsAnalysis {
-        if (rules.map { it.categoryId }.toSet() != setOf("otp", "transaction", "delivery", "promotion", "service")) {
+        val defaultById = FilterRuleRepository.defaultRules().associateBy { it.categoryId }
+        if (rules.any { defaultById[it.categoryId] != it }) {
             return analyzeCustomRules(address, body)
         }
         val sender = normalize(address)
