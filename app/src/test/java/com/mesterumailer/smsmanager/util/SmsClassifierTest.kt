@@ -217,6 +217,25 @@ class SmsClassifierTest {
     }
 
     @Test
+    fun explicitBankOtpBeatsGenericLoginServicePhrases() {
+        val result = defaultClassifier.analyze(
+            "Bank Melli",
+            "بانک ملی کد 82989 را جهت ورود به سامانه بام وارد نمایید. QVcOXy7hhZr"
+        )
+        assertEquals("otp", result.categoryId)
+        assertEquals("82989", result.otpCode)
+    }
+
+    @Test
+    fun bankTransactionWithAmountAndTransactionWordingIsRecognized() {
+        val result = defaultClassifier.analyze(
+            "TejaratBank",
+            "تراکنش حسابی مبدا 2**137 مقصد 0139249211955 مبلغ 11,000,000 رمز 701224"
+        )
+        assertEquals("transaction", result.categoryId)
+    }
+
+    @Test
     fun installmentReminderWithoutSuccessfulPaymentIsNotTransaction() {
         val result = defaultClassifier.analyze(
             "TejaratBank",
