@@ -113,7 +113,7 @@ class SmsClassifier(private val rules: List<FilterRule>) {
 
         // Bank statement templates often use compact labels rather than prose.
         val compactDebitOrCredit = Regex(
-            "(?:واریز|برداشت|انتقال|قسط)\\s*[:：]\\s*[\\d,]+\\s*[+-]?"
+            "(?:واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,]+\\s*[+-]?"
         ).containsMatchIn(body)
         if (compactDebitOrCredit && hasBankContext(sender, body)) return true
 
