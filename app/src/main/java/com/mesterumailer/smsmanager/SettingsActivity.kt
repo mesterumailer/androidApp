@@ -144,6 +144,16 @@ class SettingsActivity : BaseActivity() {
         })
 
         body.addView(TextView(this).apply {
+            text = "وزن تأثیر فرستنده: ${repository.getSenderWeight()}×  •  تغییر"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            background = rippleSurfaceBackground(getColor(R.color.accent_surface), 16)
+            setPadding(dp(10), dp(12), dp(10), dp(12))
+            setOnClickListener { showSenderWeightDialog() }
+        }, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
+
+        body.addView(TextView(this).apply {
             text = "بازگردانی دسته‌های اولیه"
             textSize = 13f
             gravity = Gravity.CENTER
@@ -156,6 +166,31 @@ class SettingsActivity : BaseActivity() {
         scroll.addView(body, LinearLayout.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return root
+    }
+
+    private fun showSenderWeightDialog() {
+        val editor = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(repository.getSenderWeight().toString())
+            hint = "۰ تا ۵"
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("وزن تأثیر فرستنده")
+            .setMessage("امتیاز نشانه‌های فرستنده در این ضریب ضرب می‌شود. مقدار پیش‌فرض ۲ و بازه مجاز ۰ تا ۵ است.")
+            .setView(editor)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره") { _, _ ->
+                val value = editor.text.toString().toIntOrNull()
+                if (value == null || value !in 0..5) {
+                    Toast.makeText(this, "عدد صحیح بین صفر تا پنج وارد کنید.", Toast.LENGTH_SHORT).show()
+                } else {
+                    repository.setSenderWeight(value)
+                    refreshCategories()
+                    Toast.makeText(this, "وزن فرستنده ذخیره شد؛ برای اعمال روی پیام‌های فعلی صندوق را تازه‌سازی کنید.", Toast.LENGTH_LONG).show()
+                }
+            }
+            .show()
     }
 
     private fun refreshCategories() {
