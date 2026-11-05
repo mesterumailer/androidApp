@@ -25,7 +25,7 @@ class SmsClassifier(
             9 to listOf("قسط:", "انتقال:", "واریز:", "برداشت:", "خرید مجموعه", "خرید دیجی کالا"),
             7 to listOf("مبلغ", "پرداخت", "خرید", "واریز", "برداشت", "قسط"),
             3 to listOf("رمز", "کارت"),
-            -10 to listOf("پیشنهاد وام", "وام ویژه", "خرید اقساطی", "پرداخت اقساطی", "دریافت وام", "کد بازیابی رمز عبور")
+            -10 to listOf("پیشنهاد وام", "وام ویژه", "خرید اقساطی", "پرداخت اقساطی", "دریافت وام", "کد بازیابی رمز عبور", "پرداخت بدهی", "اعتبار قابل مصرف")
         ),
         "delivery" to weights(
             10 to listOf("کد رهگیری مرسوله", "مرسوله پستی", "موقعیت گیرنده بسته", "پستچی", "توزیع مرسوله", "تحویل پست", "رهگیری سفارش"),
@@ -86,7 +86,7 @@ class SmsClassifier(
             .any { normalize(it) in text }
         if (!hasCode || !hasOtpIntent) scores["otp"] = minOf(scores["otp"] ?: 0, 0)
 
-        val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+").containsMatchIn(text)
+        val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+|[\\d,۰-۹]+\\s*(?:ریال|تومان)").containsMatchIn(text)
         val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:")
             .any { normalize(it) in text }
         if (!hasAmount || !hasMoneyAction) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
