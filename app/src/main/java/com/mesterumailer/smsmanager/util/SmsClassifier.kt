@@ -108,8 +108,18 @@ class SmsClassifier(
         if (!hasCode || !hasOtpIntent) scores["otp"] = minOf(scores["otp"] ?: 0, 0)
 
         val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+|[\\d,۰-۹]+\\s*(?:ریال|تومان)").containsMatchIn(text)
-        val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:")
+        val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:", "تراکنش")
             .any { normalize(it) in text }
+
+        // A numeric authentication code with explicit OTP intent must beat generic
+        // login/service wording, unless the same SMS clearly describes a money action.
+        if (hasCode && hasOtpIntent && !(hasAmount && hasMoneyAction)) {
+            scores["otp"] = maxOf(
+                scores["otp"] ?: 0,
+                (scores["service"] ?: 0) + MINIMUM_SCORE_MARGIN + 1
+            )
+        }
+
         val completedInstallment = "پرداخت قسط قرارداد" in text && "با موفقیت پرداخت شد" in text
         if ((!hasAmount || !hasMoneyAction) && !completedInstallment) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
 
