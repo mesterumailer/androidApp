@@ -10,9 +10,10 @@ import com.mesterumailer.smsmanager.util.SmsClassifier
 class SmsRepository(
     private val contentResolver: ContentResolver,
     rules: List<FilterRule>,
-    private val blockFilter: SmsBlockFilter = SmsBlockFilter(emptyList(), emptyList())
+    private val blockFilter: SmsBlockFilter = SmsBlockFilter(emptyList(), emptyList()),
+    senderWeight: Int = SmsClassifier.DEFAULT_SENDER_WEIGHT
 ) {
-    private val classifier = SmsClassifier(rules)
+    private val classifier = SmsClassifier(rules, senderWeight)
 
     fun getInbox(
         limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT,
