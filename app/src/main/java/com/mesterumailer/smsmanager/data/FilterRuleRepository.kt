@@ -31,6 +31,12 @@ class FilterRuleRepository(context: Context) {
         return migrated
     }
 
+    fun getSenderWeight(): Int = preferences.getInt(KEY_SENDER_WEIGHT, 2).coerceIn(0, 5)
+
+    fun setSenderWeight(weight: Int) {
+        preferences.edit().putInt(KEY_SENDER_WEIGHT, weight.coerceIn(0, 5)).apply()
+    }
+
     fun saveRules(rules: List<FilterRule>) {
         val array = JSONArray()
         rules.forEach { array.put(it.toJson()) }
@@ -64,6 +70,7 @@ class FilterRuleRepository(context: Context) {
     companion object {
         private const val PREFERENCES_NAME = "sms_manager_settings"
         private const val KEY_RULES = "filter_rules"
+        private const val KEY_SENDER_WEIGHT = "classification_sender_weight"
 
         fun defaultRules(): List<FilterRule> = listOf(
             FilterRule(
