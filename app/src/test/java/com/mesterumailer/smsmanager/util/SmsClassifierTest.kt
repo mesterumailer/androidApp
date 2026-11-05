@@ -113,7 +113,7 @@ class SmsClassifierTest {
 
         samples.forEachIndexed { index, (sender, body, expectedCategory) ->
             val actual = defaultClassifier.analyze(sender, body).categoryId
-            assertEquals("Reported SMS #${index + 1}", expectedCategory, actual)
+            assertEquals("Reported SMS #${index + 1}; sender=$sender; body=$body", expectedCategory, actual)
         }
     }
 
@@ -184,7 +184,8 @@ class SmsClassifierTest {
         )
 
         samples.forEachIndexed { index, (sender, body, expectedCategory) ->
-            assertEquals("Latest batch sample #\${index + 1}", expectedCategory, defaultClassifier.analyze(sender, body).categoryId)
+            val actual = defaultClassifier.analyze(sender, body).categoryId
+            assertEquals("Latest batch sample #${index + 1}; sender=$sender; body=$body", expectedCategory, actual)
         }
     }
 
