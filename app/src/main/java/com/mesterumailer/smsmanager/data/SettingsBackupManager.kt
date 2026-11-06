@@ -197,7 +197,7 @@ object SettingsBackupManager {
     }
 
     fun restore(context: Context, snapshot: SettingsBackupSnapshot) {
-        FilterRuleRepository(context).saveRules(snapshot.rules)
+        FilterRuleRepository(context).restoreRules(snapshot.rules)
 
         ThemePreferenceRepository(context).setTheme(snapshot.theme)
         SmsSettingsRepository(context).apply {

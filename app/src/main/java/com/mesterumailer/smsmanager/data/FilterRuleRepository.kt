@@ -93,6 +93,13 @@ class FilterRuleRepository(context: Context) {
         preferences.edit().putString(KEY_RULES, array.toString()).apply()
     }
 
+    /** Restores rules from a backup and records whether it already contains editable sender lists. */
+    fun restoreRules(rules: List<FilterRule>) {
+        saveRules(rules)
+        val containsMigratedSenderLists = rules.any { it.senderWeights.isNotEmpty() }
+        preferences.edit().putBoolean(KEY_SENDER_LIST_MIGRATED, containsMigratedSenderLists).apply()
+    }
+
     fun addRule(rule: FilterRule): Boolean {
         val rules = loadRules()
         if (rules.any { it.categoryId == rule.categoryId }) return false
