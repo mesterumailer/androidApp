@@ -537,7 +537,7 @@ class MainActivity : BaseActivity() {
             })
             addView(buildHelpButton(
                 "فیلتر نمایش",
-                "با انتخاب «همه»، نمایش همه دسته‌های فعال و قابل‌نمایش برقرار می‌شود. با لمس نام هر دسته، نمایش پیام‌های همان دسته روشن یا خاموش می‌شود. این فیلتر فقط نحوه نمایش در Inbox را تغییر می‌دهد؛ پیامک اصلی گوشی حذف یا تغییر نمی‌کند. فعال یا غیرفعال بودن دسته در تنظیمات نیز جدا از این فیلتر است."
+                "با انتخاب نام هر دسته، فقط پیام‌های همان دسته نمایش داده می‌شوند؛ حتی اگر متن پیام با قواعد دسته‌های دیگر هم‌پوشانی داشته باشد، برچسب دسته‌بندی نهایی خودش حفظ می‌شود. با انتخاب «همه»، نمایش همه دسته‌های فعال برقرار می‌شود. این فیلتر فقط نحوه نمایش در Inbox را تغییر می‌دهد؛ پیامک اصلی گوشی حذف یا تغییر نمی‌کند."
             ), LinearLayout.LayoutParams(dp(32), dp(32)))
         }, LinearLayout.LayoutParams(-1, dp(28)))
         val horizontal = HorizontalScrollView(this@MainActivity).apply {
@@ -568,8 +568,12 @@ class MainActivity : BaseActivity() {
         }
         activeCategoryDefinitions().forEach { (id, label) ->
             categoryFilterButtons[id] = addFilterButton(label) {
+                // Category chips are single-select: show only the chosen final category.
+                // A message matching several rules is still shown under its assigned category.
                 val repo = CategoryVisibilityRepository(this@MainActivity)
-                repo.setVisible(id, !repo.isVisible(id))
+                activeCategoryDefinitions().forEach { (categoryId, _) ->
+                    repo.setVisible(categoryId, categoryId == id)
+                }
                 refreshCategoryFilterButtons()
                 loadInbox()
             }
