@@ -11,7 +11,7 @@ class CategoryActivationRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun isActive(categoryId: String): Boolean =
-        preferences.getBoolean(key(categoryId), true)
+        preferences.getBoolean(key(categoryId), isActiveByDefault(categoryId))
 
     fun setActive(categoryId: String, active: Boolean) {
         preferences.edit().putBoolean(key(categoryId), active).apply()
@@ -33,5 +33,9 @@ class CategoryActivationRepository(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "category_activation"
+
+        fun isActiveByDefault(categoryId: String): Boolean =
+            categoryId != SmsCategory.SERVICE.id &&
+                categoryId != SmsCategory.DELIVERY.id
     }
 }

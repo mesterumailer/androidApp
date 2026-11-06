@@ -172,7 +172,7 @@ class AppSettingsActivity : BaseActivity() {
 
             addView(buildSectionHeader(
                 "صندوق پیامک",
-                "سقف پیامک تعداد پیام‌هایی را که برنامه از Inbox برای بررسی می‌خواند محدود می‌کند. در «آخرین پیام‌ها»، جدیدترین پیام‌ها تا سقف تعیین‌شده بررسی می‌شوند؛ در «تا تاریخ مشخص»، پیام‌های تا تاریخ انتخابی بررسی می‌شوند. ترتیب نمایش جدیدتر به قدیمی‌تر یا برعکس از دکمه مرتب‌سازی در صفحه اصلی تغییر می‌کند."
+                "تعداد پیام‌های آماده نمایش را تعیین می‌کند. برنامه از جدیدترین پیامک شروع می‌کند، آن‌ها را تحلیل می‌کند و از پیام‌های مسدود، حذف‌شده، متعلق به دسته‌های غیرفعال یا خارج از فیلتر و جست‌وجوی فعلی عبور می‌کند تا به این تعداد پیام قابل نمایش برسد یا پیامک‌های محدوده انتخابی تمام شوند. ترتیب نمایش از دکمه مرتب‌سازی صفحه اصلی تغییر می‌کند."
             ))
 
             val limitRow = LinearLayout(this@AppSettingsActivity).apply {
@@ -183,7 +183,7 @@ class AppSettingsActivity : BaseActivity() {
                     orientation = LinearLayout.VERTICAL
                     layoutDirection = View.LAYOUT_DIRECTION_RTL
                     addView(TextView(this@AppSettingsActivity).apply {
-                        text = "سقف پیامک"
+                        text = "تعداد پیام‌های آماده نمایش"
                         textSize = 14f
                         setTextColor(primary)
                         setTypeface(Typeface.DEFAULT, Typeface.BOLD)
@@ -197,7 +197,7 @@ class AppSettingsActivity : BaseActivity() {
                     background = roundedBackground(card, 12)
                     setPadding(dp(14), dp(9), dp(14), dp(9))
                     setOnClickListener { showInboxLimitDialog() }
-                    contentDescription = "تغییر سقف پیامک"
+                    contentDescription = "تغییر تعداد پیام‌های آماده نمایش"
                 })
             }
             addView(limitRow)
@@ -936,7 +936,7 @@ class AppSettingsActivity : BaseActivity() {
         val editor = EditText(this).apply {
             setText(current.toString())
             selectAll()
-            hint = "مثلاً 1000"
+            hint = "مثلاً 100"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine(true)
         }
@@ -945,7 +945,7 @@ class AppSettingsActivity : BaseActivity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(4), dp(2), dp(4), 0)
             addView(TextView(this@AppSettingsActivity).apply {
-                text = "پیش‌فرض: ${SmsSettingsRepository.DEFAULT_INBOX_LIMIT} پیامک\nحداقل: ${SmsSettingsRepository.MIN_INBOX_LIMIT} • حداکثر: ${SmsSettingsRepository.MAX_INBOX_LIMIT}"
+                text = "پیش‌فرض: ${SmsSettingsRepository.DEFAULT_INBOX_LIMIT} پیام آماده نمایش\nحداقل: ${SmsSettingsRepository.MIN_INBOX_LIMIT} • حداکثر: ${SmsSettingsRepository.MAX_INBOX_LIMIT}"
                 textSize = 12f
                 setTextColor(secondary)
                 setPadding(0, 0, 0, dp(8))
@@ -953,7 +953,7 @@ class AppSettingsActivity : BaseActivity() {
             addView(editor)
         }
         AlertDialog.Builder(this)
-            .setTitle("تعداد پیامک‌های Inbox")
+            .setTitle("تعداد پیام‌های آماده نمایش")
             .setView(content)
             .setNegativeButton("انصراف", null)
             .setPositiveButton("ذخیره") { _, _ ->

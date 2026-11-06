@@ -17,7 +17,8 @@ class SmsRepository(
 
     fun getInbox(
         limit: Int = SmsSettingsRepository.DEFAULT_INBOX_LIMIT,
-        untilTimestampExclusive: Long? = null
+        untilTimestampExclusive: Long? = null,
+        shouldInclude: (SmsMessage) -> Boolean = { true }
     ): List<SmsMessage> {
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
@@ -49,13 +50,16 @@ class SmsRepository(
                 // Blocked messages are discarded before classification, extraction or UI creation.
                 if (blockFilter.isBlocked(address, body)) continue
 
-                messages += SmsMessage(
+                val candidate = SmsMessage(
                     id = cursor.getLong(idIndex),
                     address = address,
                     body = body,
                     timestamp = cursor.getLong(dateIndex),
                     analysis = classifier.analyze(address, body)
                 )
+                // Keep scanning older messages until the requested number of final,
+                // display-ready Inbox entries has been collected.
+                if (shouldInclude(candidate)) messages += candidate
             }
         }
 

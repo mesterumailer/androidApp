@@ -219,9 +219,11 @@ object SettingsBackupManager {
         )
 
         val categoryIds = (snapshot.rules.map { it.categoryId } + SmsCategory.UNKNOWN.id).distinct()
-        CategoryActivationRepository(context).apply {
-            resetToDefaults()
-            categoryIds.forEach { id -> setActive(id, snapshot.categoryActivation[id] ?: true) }
+        CategoryActivationRepository(context).let { activation ->
+            activation.resetToDefaults()
+            categoryIds.forEach { id ->
+                activation.setActive(id, snapshot.categoryActivation[id] ?: activation.isActive(id))
+            }
         }
         CategoryVisibilityRepository(context).apply {
             resetToDefaults()

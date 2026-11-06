@@ -91,6 +91,7 @@ class MainActivity : BaseActivity() {
     private val adExecutor = Executors.newSingleThreadExecutor()
     private var processingToken = 0L
     private var processingShowTask: Runnable? = null
+    private var searchReloadTask: Runnable? = null
 
     private val pageBackground: Int get() = getColor(R.color.page_background)
     private val cardBackground: Int get() = getColor(R.color.card_background)
@@ -478,6 +479,12 @@ class MainActivity : BaseActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 searchClear.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
                 requestRender("در حال جست‌وجو...")
+                searchReloadTask?.let(processingHandler::removeCallbacks)
+                val reloadTask = Runnable {
+                    if (!isFinishing && !isDestroyed && hasRequiredSmsPermissions()) loadInbox()
+                }
+                searchReloadTask = reloadTask
+                processingHandler.postDelayed(reloadTask, 400L)
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -557,14 +564,14 @@ class MainActivity : BaseActivity() {
             val repo = CategoryVisibilityRepository(this@MainActivity)
             activeCategoryDefinitions().forEach { (id, _) -> repo.setVisible(id, true) }
             refreshCategoryFilterButtons()
-            requestRender("در حال اعمال فیلترها...")
+            loadInbox()
         }
         activeCategoryDefinitions().forEach { (id, label) ->
             categoryFilterButtons[id] = addFilterButton(label) {
                 val repo = CategoryVisibilityRepository(this@MainActivity)
                 repo.setVisible(id, !repo.isVisible(id))
                 refreshCategoryFilterButtons()
-                requestRender("در حال اعمال فیلترها...")
+                loadInbox()
             }
         }
         refreshCategoryFilterButtons()
@@ -779,23 +786,38 @@ class MainActivity : BaseActivity() {
                     null
                 }
                 inboxSortOrder = readSettings.sortOrder
-                val activeRuleIds = CategoryActivationRepository(this)
-                    .activeCategoryIds(rules.map { it.categoryId })
-                val classificationRules = rules.filter { it.categoryId in activeRuleIds }
+                val activeCategoryIds = CategoryActivationRepository(this)
+                    .activeCategoryIds(rules.map { it.categoryId } + SmsCategory.UNKNOWN.id)
+                val readyCategoryIds = CategoryVisibilityRepository(this)
+                    .visibleCategoryIds(activeCategoryIds)
                 val blockSettings = SmsBlockRepository(this).getSettings()
                 val blockFilter = com.mesterumailer.smsmanager.util.SmsBlockFilter(
                     blockedSenders = blockSettings.blockedSenders,
                     blockedContent = blockSettings.blockedContent
                 )
+                val trashedKeys = SmsTrashRepository(this).getKeys()
+                val messageOverrides = MessageOverrideRepository(this)
+                val query = searchInput.text?.toString().orEmpty()
+                val normalizedQuery = SmsInboxFilter.normalize(query)
                 val messages = applyMessageOverrides(
                     SmsRepository(
                         contentResolver,
-                        classificationRules,
+                        rules,
                         blockFilter,
                         FilterRuleRepository(this@MainActivity).getSenderWeight()
                     ).getInbox(
                         limit = readSettings.limit,
-                        untilTimestampExclusive = untilTimestampExclusive
+                        untilTimestampExclusive = untilTimestampExclusive,
+                        shouldInclude = { candidate ->
+                            val finalCategoryId = messageOverrides.getCategoryId(candidate.id)
+                                ?: candidate.analysis.categoryId
+                            val queryMatches = normalizedQuery.isBlank() ||
+                                SmsInboxFilter.normalize(candidate.body).contains(normalizedQuery) ||
+                                SmsInboxFilter.normalize(candidate.address).contains(normalizedQuery)
+                            finalCategoryId in readyCategoryIds &&
+                                SmsTrashRepository.keyFor(candidate) !in trashedKeys &&
+                                queryMatches
+                        }
                     )
                 )
                 runOnUiThread {
@@ -1103,33 +1125,13 @@ class MainActivity : BaseActivity() {
                 val selectedId = definitions[which].first
                 MessageOverrideRepository(this).setCategory(message.id, selectedId)
                 dialog.dismiss()
-                beginProcessing("در حال اعمال دسته‌بندی...")
-                val token = processingToken
-                val snapshot = currentMessages
-                processingExecutor.execute {
-                    val updated = applyMessageOverrides(snapshot)
-                    runOnUiThread {
-                        if (token != processingToken || isFinishing) return@runOnUiThread
-                        currentMessages = updated
-                        requestRender("در حال نمایش پیام‌ها...")
-                        Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                Toast.makeText(this, "دسته «" + definitions[which].second + "» برای این پیام ذخیره شد.", Toast.LENGTH_SHORT).show()
+                loadInbox()
             }
             .setNeutralButton("بازگشت به تشخیص خودکار") { _, _ ->
                 MessageOverrideRepository(this).clearCategory(message.id)
-                beginProcessing("در حال بازگردانی تشخیص خودکار...")
-                val token = processingToken
-                val snapshot = currentMessages
-                processingExecutor.execute {
-                    val updated = applyMessageOverrides(snapshot)
-                    runOnUiThread {
-                        if (token != processingToken || isFinishing) return@runOnUiThread
-                        currentMessages = updated
-                        requestRender("در حال نمایش پیام‌ها...")
-                        Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                Toast.makeText(this, "تشخیص خودکار پیام فعال شد.", Toast.LENGTH_SHORT).show()
+                loadInbox()
             }
             .setNegativeButton("انصراف", null)
             .show()
@@ -1153,7 +1155,7 @@ class MainActivity : BaseActivity() {
                 val added = SmsBlockRepository(this).addBlockedSender(sender)
                 if (added) {
                     selectedIds.clear()
-                    requestRender("در حال اعمال مسدودسازی...")
+                    loadInbox()
                     Toast.makeText(this, "فرستنده به فهرست مسدودی‌ها اضافه شد.", Toast.LENGTH_SHORT).show()
                 } else {
                     requestRender("در حال به‌روزرسانی Inbox...")
@@ -1219,7 +1221,7 @@ class MainActivity : BaseActivity() {
             .setPositiveButton("حذف") { _, _ ->
                 SmsTrashRepository(this).add(uniqueMessages)
                 selectedIds.removeAll(uniqueMessages.map { it.id }.toSet())
-                requestRender("در حال انتقال پیام به سطل زباله...")
+                loadInbox()
                 Toast.makeText(
                     this,
                     if (count == 1) "پیام به سطل زباله منتقل شد." else "$count پیام به سطل زباله منتقل شدند.",
@@ -1336,7 +1338,8 @@ class MainActivity : BaseActivity() {
 
     override fun onDestroy() {
         processingShowTask?.let(processingHandler::removeCallbacks)
-        processingExecutor.shutdownNow()
+        searchReloadTask?.let(processingHandler::removeCallbacks)
+        processingExecutor.shutdownNow
         adExecutor.shutdownNow()
         super.onDestroy()
     }
