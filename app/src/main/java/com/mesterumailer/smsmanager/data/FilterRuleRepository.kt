@@ -93,11 +93,12 @@ class FilterRuleRepository(context: Context) {
         preferences.edit().putString(KEY_RULES, array.toString()).apply()
     }
 
-    /** Restores rules from a backup and records whether it already contains editable sender lists. */
-    fun restoreRules(rules: List<FilterRule>) {
+    /** Restores rules from a backup and records the sender-list schema represented by that backup. */
+    fun restoreRules(rules: List<FilterRule>, senderListsVersion: Int = 0) {
         saveRules(rules)
-        val containsMigratedSenderLists = rules.any { it.senderWeights.isNotEmpty() }
-        preferences.edit().putBoolean(KEY_SENDER_LIST_MIGRATED, containsMigratedSenderLists).apply()
+        preferences.edit()
+            .putBoolean(KEY_SENDER_LIST_MIGRATED, senderListsVersion >= SENDER_LISTS_VERSION)
+            .apply()
     }
 
     fun addRule(rule: FilterRule): Boolean {
@@ -133,6 +134,7 @@ class FilterRuleRepository(context: Context) {
         private const val KEY_SENDER_WEIGHT = "classification_sender_weight"
         private const val KEY_SENDER_LIST_MIGRATED = "classification_sender_list_migrated_v1"
         private const val DEFAULT_SENDER_WEIGHT = 2
+        private const val SENDER_LISTS_VERSION = 1
 
         fun defaultRules(): List<FilterRule> = listOf(
             FilterRule(

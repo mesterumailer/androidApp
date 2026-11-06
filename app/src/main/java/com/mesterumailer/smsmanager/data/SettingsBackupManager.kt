@@ -25,7 +25,8 @@ data class SettingsBackupSnapshot(
     val categoryActivation: Map<String, Boolean>,
     val categoryVisibility: Map<String, Boolean>,
     val notifications: Map<String, NotificationBackupSetting>,
-    val otpAutoCopyEnabled: Boolean
+    val otpAutoCopyEnabled: Boolean,
+    val senderListsVersion: Int = 0
 )
 
 /**
@@ -89,6 +90,7 @@ object SettingsBackupManager {
             put("otp", JSONObject().apply {
                 put("autoCopyCode", otpSettingsRepository.isAutoCopyEnabled())
             })
+            put("classification", JSONObject().put("senderListsVersion", 1))
         }.toString(2)
     }
 
@@ -128,6 +130,10 @@ object SettingsBackupManager {
         val blocking = requiredObject(root, "blocking")
         val blockedSenders = stringList(blocking, "senders")
         val blockedContent = stringList(blocking, "content")
+
+        val senderListsVersion = root.optJSONObject("classification")
+            ?.optInt("senderListsVersion", 0) ?: 0
+        if (senderListsVersion !in 0..1) invalid("نسخه فهرست فرستنده‌ها در فایل پشتیبان پشتیبانی نمی‌شود.")
 
         val categories = requiredObject(root, "categories")
         val rulesArray = categories.opt("rules") as? JSONArray
@@ -192,12 +198,13 @@ object SettingsBackupManager {
             categoryActivation = activation,
             categoryVisibility = visibility,
             notifications = notifications,
-            otpAutoCopyEnabled = parseOtpAutoCopy(root)
+            otpAutoCopyEnabled = parseOtpAutoCopy(root),
+            senderListsVersion = senderListsVersion
         )
     }
 
     fun restore(context: Context, snapshot: SettingsBackupSnapshot) {
-        FilterRuleRepository(context).restoreRules(snapshot.rules)
+        FilterRuleRepository(context).restoreRules(snapshot.rules, snapshot.senderListsVersion)
 
         ThemePreferenceRepository(context).setTheme(snapshot.theme)
         SmsSettingsRepository(context).apply {
