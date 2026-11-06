@@ -64,7 +64,10 @@ class SmsClassifier(
         rule.anyKeywords.distinct().forEach { putIfAbsent(it, 3) }
         rule.requiredKeywords.distinct().forEach { putIfAbsent(it, 5) }
         rule.excludedKeywords.distinct().forEach { put(it, -10) }
-        rule.keywordWeights.forEach { (phrase, value) -> put(phrase, value.coerceIn(-20, 20)) }
+        val allowed = (keys + rule.anyKeywords + rule.requiredKeywords + rule.excludedKeywords).toSet()
+        rule.keywordWeights.filterKeys { it in allowed }.forEach { (phrase, value) ->
+            put(phrase, value.coerceIn(-20, 20))
+        }
     }
 
     /**
@@ -76,7 +79,10 @@ class SmsClassifier(
             put(alias, value * senderWeight.coerceIn(0, 5))
         }
         rule.senderContains.distinct().forEach { putIfAbsent(it, 2 * senderWeight.coerceIn(0, 5)) }
-        rule.senderWeights.forEach { (alias, value) -> put(alias, value.coerceIn(-20, 20)) }
+        val allowed = (keys + rule.senderContains).toSet()
+        rule.senderWeights.filterKeys { it in allowed }.forEach { (alias, value) ->
+            put(alias, value.coerceIn(-20, 20))
+        }
     }
 
     fun analyze(address: String, body: String): SmsAnalysis {
@@ -101,7 +107,7 @@ class SmsClassifier(
                 val anyHits = rule.anyKeywords.distinct().count { normalize(it) in text }
                 if (anyHits < rule.minimumAnyMatches) score -= 10
             }
-            if (category !in textWeights.keys) {
+            if (category !in textWeights.keys && score > 0) {
                 score += rule.priority.coerceIn(0, 100) / 10
             }
             scores[category] = score
