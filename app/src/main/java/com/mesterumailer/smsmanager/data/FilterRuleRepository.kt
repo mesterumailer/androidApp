@@ -8,7 +8,13 @@ class FilterRuleRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
     fun loadRules(): List<FilterRule> {
-        val stored = preferences.getString(KEY_RULES, null) ?: return defaultRulesForCurrentSenderWeight()
+        val stored = preferences.getString(KEY_RULES, null)
+        if (stored == null) {
+            // Fresh installs already receive the editable sender lists. Mark the one-time
+            // migration complete so a later user deletion is never undone.
+            markSenderListMigrationComplete()
+            return defaultRulesForCurrentSenderWeight()
+        }
         val loaded = runCatching {
             val array = JSONArray(stored)
             buildList(array.length()) {
@@ -16,7 +22,10 @@ class FilterRuleRepository(context: Context) {
                     add(FilterRule.fromJson(array.getJSONObject(i)))
                 }
             }.filter { it.categoryId.isNotBlank() && it.displayName.isNotBlank() }
-        }.getOrElse { return defaultRulesForCurrentSenderWeight() }
+        }.getOrElse {
+            markSenderListMigrationComplete()
+            return defaultRulesForCurrentSenderWeight()
+        }
 
         return migrateUnmodifiedLegacyDefaults(loaded)
     }
@@ -25,13 +34,23 @@ class FilterRuleRepository(context: Context) {
         val legacy = (legacyDefaultRules() + previousReleaseDefaultRules()).groupBy { it.categoryId }
         val current = defaultRules().associateBy { it.categoryId }
         val multiplier = getSenderWeight()
+        val shouldMigrateSenderLists = !preferences.getBoolean(KEY_SENDER_LIST_MIGRATED, false)
         val migrated = rules.map { rule ->
             val wasUnmodifiedBuiltIn = legacy[rule.categoryId].orEmpty().any { it == rule }
             val source = if (wasUnmodifiedBuiltIn) current[rule.categoryId] ?: rule else rule
-            migrateBuiltInSenderList(source, multiplier, replaceBuiltInWeights = wasUnmodifiedBuiltIn)
+            if (shouldMigrateSenderLists) {
+                migrateBuiltInSenderList(source, multiplier, replaceBuiltInWeights = wasUnmodifiedBuiltIn)
+            } else {
+                source
+            }
         }
         if (migrated != rules) saveRules(migrated)
+        if (shouldMigrateSenderLists) markSenderListMigrationComplete()
         return migrated
+    }
+
+    private fun markSenderListMigrationComplete() {
+        preferences.edit().putBoolean(KEY_SENDER_LIST_MIGRATED, true).apply()
     }
 
     /**
@@ -96,12 +115,16 @@ class FilterRuleRepository(context: Context) {
         return true
     }
 
-    fun resetToDefaults() = saveRules(defaultRulesForCurrentSenderWeight())
+    fun resetToDefaults() {
+        saveRules(defaultRulesForCurrentSenderWeight())
+        markSenderListMigrationComplete()
+    }
 
     companion object {
         private const val PREFERENCES_NAME = "sms_manager_settings"
         private const val KEY_RULES = "filter_rules"
         private const val KEY_SENDER_WEIGHT = "classification_sender_weight"
+        private const val KEY_SENDER_LIST_MIGRATED = "classification_sender_list_migrated_v1"
         private const val DEFAULT_SENDER_WEIGHT = 2
 
         fun defaultRules(): List<FilterRule> = listOf(
