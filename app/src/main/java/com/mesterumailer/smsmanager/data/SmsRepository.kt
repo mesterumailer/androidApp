@@ -99,4 +99,5 @@ class SmsRepository(
 
     companion object {
         const val DEFAULT_SCAN_BATCH_SIZE = 500
-    }}
+    }
+}
