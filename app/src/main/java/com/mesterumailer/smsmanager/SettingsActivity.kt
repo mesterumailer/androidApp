@@ -19,6 +19,7 @@ import com.mesterumailer.smsmanager.model.SmsCategory
 import android.widget.Toast
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
+import com.mesterumailer.smsmanager.util.SmsClassifier
 
 class SettingsActivity : BaseActivity() {
     private lateinit var repository: FilterRuleRepository
@@ -144,13 +145,13 @@ class SettingsActivity : BaseActivity() {
         })
 
         body.addView(TextView(this).apply {
-            text = "وزن تأثیر فرستنده: ${repository.getSenderWeight()}×  •  تغییر"
+            text = "مشاهده و ویرایش وزن‌های دسته‌بندی"
             textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(accent)
             background = rippleSurfaceBackground(getColor(R.color.accent_surface), 16)
             setPadding(dp(10), dp(12), dp(10), dp(12))
-            setOnClickListener { showSenderWeightDialog() }
+            setOnClickListener { showWeightCategoryPicker() }
         }, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
 
         body.addView(TextView(this).apply {
@@ -168,29 +169,129 @@ class SettingsActivity : BaseActivity() {
         return root
     }
 
-    private fun showSenderWeightDialog() {
-        val editor = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(repository.getSenderWeight().toString())
-            hint = "۰ تا ۵"
-            setPadding(dp(14), dp(10), dp(14), dp(10))
+    private data class WeightInput(val phrase: String, val editor: EditText)
+
+    private fun showWeightCategoryPicker() {
+        val currentRules = repository.loadRules()
+        if (currentRules.isEmpty()) {
+            Toast.makeText(this, "ابتدا یک دسته ایجاد کنید.", Toast.LENGTH_SHORT).show()
+            return
         }
+        val ordered = currentRules.sortedByDescending { it.priority }
         AlertDialog.Builder(this)
-            .setTitle("وزن تأثیر فرستنده")
-            .setMessage("امتیاز نشانه‌های فرستنده در این ضریب ضرب می‌شود. مقدار پیش‌فرض ۲ و بازه مجاز ۰ تا ۵ است.")
-            .setView(editor)
-            .setNegativeButton("انصراف", null)
-            .setPositiveButton("ذخیره") { _, _ ->
-                val value = editor.text.toString().toIntOrNull()
-                if (value == null || value !in 0..5) {
-                    Toast.makeText(this, "عدد صحیح بین صفر تا پنج وارد کنید.", Toast.LENGTH_SHORT).show()
-                } else {
-                    repository.setSenderWeight(value)
-                    refreshCategories()
-                    Toast.makeText(this, "وزن فرستنده ذخیره شد؛ برای اعمال روی پیام‌های فعلی صندوق را تازه‌سازی کنید.", Toast.LENGTH_LONG).show()
+            .setTitle("انتخاب دسته برای مدیریت وزن‌ها")
+            .setItems(ordered.map { it.displayName }.toTypedArray()) { _, index ->
+                showCategoryWeightsDialog(ordered[index])
+            }
+            .setNegativeButton("بستن", null)
+            .show()
+    }
+
+    private fun showCategoryWeightsDialog(rule: FilterRule) {
+        val classifier = SmsClassifier(repository.loadRules(), repository.getSenderWeight())
+        val keywordValues = classifier.keywordWeightsFor(rule).toSortedMap()
+        val senderValues = classifier.senderWeightsFor(rule).toSortedMap()
+        val keywordInputs = mutableListOf<WeightInput>()
+        val senderInputs = mutableListOf<WeightInput>()
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(4), dp(4), dp(4), dp(8))
+            addView(TextView(this@SettingsActivity).apply {
+                text = "عدد مثبت، احتمال تعلق پیام به این دسته را بیشتر می‌کند؛ عدد منفی آن را کاهش می‌دهد. صفر یعنی این نشانه امتیازی ندارد. بازه مجاز: ۲۰- تا ۲۰+."
+                textSize = 12f
+                setTextColor(secondary)
+                setPadding(0, 0, 0, dp(12))
+            })
+
+            fun addWeightSection(title: String, values: Map<String, Int>, target: MutableList<WeightInput>) {
+                addView(TextView(this@SettingsActivity).apply {
+                    text = title
+                    textSize = 14f
+                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                    setTextColor(primary)
+                    setPadding(0, dp(8), 0, dp(6))
+                })
+                values.forEach { (phrase, weight) ->
+                    val row = LinearLayout(this@SettingsActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutDirection = View.LAYOUT_DIRECTION_RTL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(8), dp(4), dp(8), dp(4))
+                        background = rippleSurfaceBackground(card, 10)
+                        layoutParams = LinearLayout.LayoutParams(-1, dp(46)).apply {
+                            bottomMargin = dp(4)
+                        }
+                        addView(TextView(this@SettingsActivity).apply {
+                            text = phrase
+                            textSize = 12f
+                            setTextColor(primary)
+                            maxLines = 2
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                        })
+                        val editor = EditText(this@SettingsActivity).apply {
+                            setText(weight.toString())
+                            textSize = 13f
+                            gravity = Gravity.CENTER
+                            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+                            setSingleLine(true)
+                            selectAll()
+                            setPadding(dp(4), dp(2), dp(4), dp(2))
+                        }
+                        addView(editor, LinearLayout.LayoutParams(dp(58), dp(40)).apply {
+                            marginStart = dp(8)
+                        })
+                        target += WeightInput(phrase, editor)
+                    }
+                    addView(row)
                 }
             }
-            .show()
+
+            addWeightSection("وزن عبارت‌ها و کلمات", keywordValues, keywordInputs)
+            addWeightSection("وزن نام و شماره فرستنده", senderValues, senderInputs)
+        }
+        val scroll = ScrollView(this).apply {
+            addView(content)
+            isFillViewport = true
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("وزن‌های «${rule.displayName}»")
+            .setView(scroll)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                fun collect(inputs: List<WeightInput>): Map<String, Int>? {
+                    val result = linkedMapOf<String, Int>()
+                    inputs.forEach { input ->
+                        val value = input.editor.text.toString().trim().toIntOrNull()
+                        if (value == null || value !in -20..20) {
+                            input.editor.error = "عدد صحیح بین ۲۰- تا ۲۰ وارد کنید"
+                            return null
+                        }
+                        result[input.phrase] = value
+                    }
+                    return result
+                }
+                val nextKeywords = collect(keywordInputs) ?: return@setOnClickListener
+                val nextSenders = collect(senderInputs) ?: return@setOnClickListener
+                val latest = repository.loadRules().firstOrNull { it.categoryId == rule.categoryId } ?: rule
+                if (!repository.updateRule(latest.copy(
+                        keywordWeights = nextKeywords,
+                        senderWeights = nextSenders
+                    ))) {
+                    Toast.makeText(this, "ذخیره وزن‌ها انجام نشد.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                refreshCategories()
+                Toast.makeText(this, "وزن‌های دسته ذخیره شد؛ برای اعمال روی پیام‌های فعلی Inbox را تازه‌سازی کنید.", Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun refreshCategories() {
@@ -452,7 +553,9 @@ class SettingsActivity : BaseActivity() {
                     anyKeywords = parseLines(any.second.text.toString()),
                     excludedKeywords = parseLines(excluded.second.text.toString()),
                     minimumAnyMatches = minimum.second.text.toString().toIntOrNull()?.coerceAtLeast(0) ?: 1,
-                    priority = priority.second.text.toString().toIntOrNull() ?: 10
+                    priority = priority.second.text.toString().toIntOrNull() ?: 10,
+                    keywordWeights = original?.keywordWeights ?: emptyMap(),
+                    senderWeights = original?.senderWeights ?: emptyMap()
                 )
                 val success = if (isNew) repository.addRule(rule) else repository.updateRule(rule)
                 if (!success) {

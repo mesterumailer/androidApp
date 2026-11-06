@@ -1,6 +1,5 @@
 package com.mesterumailer.smsmanager.util
 
-import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsAnalysis
 import com.mesterumailer.smsmanager.model.SmsCategory
@@ -56,48 +55,54 @@ class SmsClassifier(
         "otp" to mapOf("تهران پیمنت" to 2, "98200090070" to 2)
     )
 
-    fun analyze(address: String, body: String): SmsAnalysis {
-        val defaultById = FilterRuleRepository.defaultRules().associateBy { it.categoryId }
-        if (rules.any { defaultById[it.categoryId] != it }) {
-            return analyzeCustomRules(address, body)
+    /**
+     * Returns all phrase weights used for this category, including built-in defaults,
+     * the category's own rule phrases, and the user's explicit overrides.
+     */
+    fun keywordWeightsFor(rule: FilterRule): Map<String, Int> = buildMap {
+        textWeights[rule.categoryId].orEmpty().forEach { (phrase, value) -> put(phrase, value) }
+        rule.anyKeywords.distinct().forEach { putIfAbsent(it, 3) }
+        rule.requiredKeywords.distinct().forEach { putIfAbsent(it, 5) }
+        rule.excludedKeywords.distinct().forEach { put(it, -10) }
+        rule.keywordWeights.forEach { (phrase, value) -> put(phrase, value.coerceIn(-20, 20)) }
+    }
+
+    /**
+     * Sender weights are displayed and edited as final score values. The legacy multiplier
+     * applies only to untouched defaults so existing installations retain their behavior.
+     */
+    fun senderWeightsFor(rule: FilterRule): Map<String, Int> = buildMap {
+        senderWeights[rule.categoryId].orEmpty().forEach { (alias, value) ->
+            put(alias, value * senderWeight.coerceIn(0, 5))
         }
+        rule.senderContains.distinct().forEach { putIfAbsent(it, 2 * senderWeight.coerceIn(0, 5)) }
+        rule.senderWeights.forEach { (alias, value) -> put(alias, value.coerceIn(-20, 20)) }
+    }
+
+    fun analyze(address: String, body: String): SmsAnalysis {
         val sender = normalize(address)
         val text = normalize(body)
         val scores = linkedMapOf<String, Int>()
 
         rules.forEach { rule ->
             val category = rule.categoryId
-            val phraseMap = textWeights[category]
             var score = 0
-
-            if (phraseMap != null) {
-                phraseMap.forEach { (phrase, value) ->
-                    if (normalize(phrase) in text) score += value
-                }
-                // Keep user-added rules effective even for built-in categories.
-                rule.anyKeywords.distinct().filterNot { phraseMap.containsKey(it) }.forEach {
-                    if (normalize(it) in text) score += 3
-                }
-                rule.requiredKeywords.distinct().forEach {
-                    score += if (normalize(it) in text) 5 else -10
-                }
-                rule.excludedKeywords.distinct().forEach {
-                    if (normalize(it) in text) score -= 10
-                }
-                val knownSenders = senderWeights[category].orEmpty()
-                knownSenders.forEach { (alias, value) ->
-                    if (normalize(alias) in sender) score += value * senderWeight.coerceIn(0, 5)
-                }
-                rule.senderContains.distinct().filterNot { alias ->
-                    knownSenders.keys.any { normalize(it) == normalize(alias) }
-                }.forEach {
-                    if (normalize(it) in sender) score += 2 * senderWeight.coerceIn(0, 5)
-                }
-            } else {
-                rule.anyKeywords.distinct().forEach { if (normalize(it) in text) score += 3 }
-                rule.requiredKeywords.distinct().forEach { score += if (normalize(it) in text) 5 else -10 }
-                rule.excludedKeywords.distinct().forEach { if (normalize(it) in text) score -= 10 }
-                rule.senderContains.distinct().forEach { if (normalize(it) in sender) score += 2 * senderWeight.coerceIn(0, 5) }
+            keywordWeightsFor(rule).forEach { (phrase, value) ->
+                if (value != 0 && normalize(phrase) in text) score += value
+            }
+            rule.requiredKeywords.distinct().forEach {
+                if (normalize(it) !in text) score -= 10
+            }
+            senderWeightsFor(rule).forEach { (alias, value) ->
+                if (value != 0 && normalize(alias) in sender) score += value
+            }
+            // Minimum-match and priority settings now modify scores in this same engine.
+            if (rule.minimumAnyMatches > 1) {
+                val anyHits = rule.anyKeywords.distinct().count { normalize(it) in text }
+                if (anyHits < rule.minimumAnyMatches) score -= 10
+            }
+            if (category !in textWeights.keys) {
+                score += rule.priority.coerceIn(0, 100) / 10
             }
             scores[category] = score
         }
@@ -140,30 +145,6 @@ class SmsClassifier(
             otpCode = if (categoryId == "otp") numberRegex.find(text)?.value else null,
             amount = null,
             confidence = confidence
-        )
-    }
-
-    private fun analyzeCustomRules(address: String, body: String): SmsAnalysis {
-        val sender = normalize(address)
-        val text = normalize(body)
-        val candidates = rules.mapNotNull { rule ->
-            if (rule.excludedKeywords.any { normalize(it) in text }) return@mapNotNull null
-            val anyHits = rule.anyKeywords.count { normalize(it) in text }
-            if (rule.anyKeywords.isNotEmpty() && anyHits < rule.minimumAnyMatches) return@mapNotNull null
-            if (rule.requiredKeywords.any { normalize(it) !in text }) return@mapNotNull null
-            val senderHits = rule.senderContains.count { normalize(it) in sender }
-            if (rule.senderContains.isNotEmpty() && senderHits == 0 && anyHits == 0) return@mapNotNull null
-            val value = anyHits * 2 + senderHits * 2 + rule.requiredKeywords.size * 3 + rule.priority.coerceIn(0, 100) / 10
-            if (value > 0) rule to value else null
-        }.sortedByDescending { it.second }
-        val winner = candidates.firstOrNull()?.first
-        val categoryId = winner?.categoryId ?: SmsCategory.UNKNOWN.id
-        return SmsAnalysis(
-            category = SmsCategory.fromId(categoryId),
-            categoryId = categoryId,
-            otpCode = numberRegex.find(text)?.value,
-            amount = null,
-            confidence = candidates.firstOrNull()?.second?.let { (it.coerceAtMost(10) / 10f).coerceAtLeast(0.5f) } ?: 0f
         )
     }
 

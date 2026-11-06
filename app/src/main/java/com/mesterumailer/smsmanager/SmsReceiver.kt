@@ -44,7 +44,7 @@ class SmsReceiver : BroadcastReceiver() {
         val rules = FilterRuleRepository(context).loadRules()
         // Notification routing is intentionally independent from Inbox category activation.
         // A category may be hidden/disabled in the UI while still having its own notification enabled.
-        val classifier = SmsClassifier(rules)
+        val classifier = SmsClassifier(rules, FilterRuleRepository(context).getSenderWeight())
         val analysis = classifier.analyze(address, body)
         val categoryId = analysis.categoryId
         val categoryLabel = rules.firstOrNull { it.categoryId == categoryId }?.displayName

@@ -149,7 +149,12 @@ object SettingsBackupManager {
                 val minimum = requiredInt(item, "minimumAnyMatches")
                 if (minimum !in 0..500) invalid("حداقل تطبیق یکی از قوانین معتبر نیست.")
                 val priority = requiredInt(item, "priority")
-                add(FilterRule(id, name, sender, required, any, excluded, minimum, priority))
+                val keywordWeights = integerMap(item, "keywordWeights")
+                val senderWeights = integerMap(item, "senderWeights")
+                add(FilterRule(
+                    id, name, sender, required, any, excluded, minimum, priority,
+                    keywordWeights, senderWeights
+                ))
             }
         }
         if (rules.map { it.categoryId }.distinct().size != rules.size) {
@@ -284,6 +289,25 @@ object SettingsBackupManager {
                 add(normalized)
             }
         }.distinctBy { it.lowercase(Locale.ROOT) }
+    }
+
+    private fun integerMap(source: JSONObject, key: String): Map<String, Int> {
+        val values = source.optJSONObject(key) ?: return emptyMap()
+        if (values.length() > 5000) invalid("تعداد وزن‌های " + key + " بیش از حد مجاز است.")
+        val result = linkedMapOf<String, Int>()
+        val keys = values.keys()
+        while (keys.hasNext()) {
+            val phrase = keys.next().trim()
+            val raw = values.opt(phrase)
+            val number = raw as? Number ?: invalid("وزن یکی از موارد " + key + " معتبر نیست.")
+            val numeric = number.toDouble()
+            if (phrase.isBlank() || phrase.length > MAX_TEXT_LENGTH ||
+                !numeric.isFinite() || numeric != number.toInt().toDouble() ||
+                number.toInt() !in -20..20
+            ) invalid("یکی از وزن‌های " + key + " خارج از محدوده مجاز است.")
+            result[phrase] = number.toInt()
+        }
+        return result
     }
 
     private fun booleanMap(source: JSONObject, allowedIds: Set<String>): Map<String, Boolean> {

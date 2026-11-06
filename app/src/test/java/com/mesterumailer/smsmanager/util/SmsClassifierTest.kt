@@ -85,6 +85,62 @@ class SmsClassifierTest {
     }
 
     @Test
+    fun customCategoriesUseTheSameWeightedEngineAndUserWeights() {
+        val rules = listOf(
+            FilterRule(
+                categoryId = "custom_low",
+                displayName = "امتیاز کم",
+                anyKeywords = listOf("آزمایش"),
+                keywordWeights = mapOf("آزمایش" to 2)
+            ),
+            FilterRule(
+                categoryId = "custom_high",
+                displayName = "امتیاز زیاد",
+                anyKeywords = listOf("آزمایش"),
+                keywordWeights = mapOf("آزمایش" to 9)
+            )
+        )
+        val result = SmsClassifier(rules).analyze("فرستنده", "آزمایش")
+        assertEquals("custom_high", result.categoryId)
+    }
+
+    @Test
+    fun editingABuiltInRuleDoesNotSwitchToASeparateClassifier() {
+        val modified = FilterRuleRepository.defaultRules().map { rule ->
+            if (rule.categoryId == "promotion") {
+                rule.copy(
+                    anyKeywords = rule.anyKeywords + "عبارت آزمایشی",
+                    keywordWeights = rule.keywordWeights + ("عبارت آزمایشی" to 15)
+                )
+            } else rule
+        }
+        val classifier = SmsClassifier(modified)
+        val result = classifier.analyze("شماره ناشناس", "عبارت آزمایشی")
+        assertEquals("promotion", result.categoryId)
+        assertEquals(15, classifier.keywordWeightsFor(modified.first { it.categoryId == "promotion" })["عبارت آزمایشی"])
+    }
+
+    @Test
+    fun userCanSetAnIndividualSenderWeight() {
+        val rules = listOf(
+            FilterRule(
+                categoryId = "custom_sender_low",
+                displayName = "فرستنده کم",
+                senderContains = listOf("notify"),
+                senderWeights = mapOf("notify" to 2)
+            ),
+            FilterRule(
+                categoryId = "custom_sender_high",
+                displayName = "فرستنده زیاد",
+                senderContains = listOf("notify"),
+                senderWeights = mapOf("notify" to 12)
+            )
+        )
+        val result = SmsClassifier(rules).analyze("notify-service", "پیام")
+        assertEquals("custom_sender_high", result.categoryId)
+    }
+
+    @Test
     fun keepsUnmatchedMessageUnknown() {
         val result = classifier.analyze("دوست", "سلام، امروز ساعت 8 حرکت می‌کنیم")
         assertEquals(SmsCategory.UNKNOWN, result.category)
