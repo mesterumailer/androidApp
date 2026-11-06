@@ -836,7 +836,8 @@ class MainActivity : BaseActivity() {
                             SmsTrashRepository.keyFor(candidate) !in trashedKeys &&
                             queryMatches
                     }
-                    accumulated += batch.messages
+                    val remainingSlots = (targetCount - accumulated.size).coerceAtLeast(0)
+                    accumulated += batch.messages.take(remainingSlots)
                     val totalScanned = scannedSoFar + batch.scannedCount
                     if (accumulated.size >= targetCount || !batch.hasMore) {
                         finishSearch()
