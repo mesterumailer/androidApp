@@ -37,8 +37,8 @@ data class InboxReadSettings(
 class SmsSettingsRepository(context: Context) {
     companion object {
         const val DEFAULT_LIMIT = 100
-        const val MIN_LIMIT = 100
-        const val MAX_LIMIT = 5000
+        const val MIN_LIMIT = 1
+        const val MAX_LIMIT = 100
 
         const val DEFAULT_INBOX_LIMIT = DEFAULT_LIMIT
         const val MIN_INBOX_LIMIT = MIN_LIMIT

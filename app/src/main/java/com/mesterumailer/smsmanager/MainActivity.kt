@@ -1339,7 +1339,7 @@ class MainActivity : BaseActivity() {
     override fun onDestroy() {
         processingShowTask?.let(processingHandler::removeCallbacks)
         searchReloadTask?.let(processingHandler::removeCallbacks)
-        processingExecutor.shutdownNow
+        processingExecutor.shutdownNow()
         adExecutor.shutdownNow()
         super.onDestroy()
     }

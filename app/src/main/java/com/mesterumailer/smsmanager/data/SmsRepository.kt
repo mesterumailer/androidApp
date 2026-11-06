@@ -20,6 +20,10 @@ class SmsRepository(
         untilTimestampExclusive: Long? = null,
         shouldInclude: (SmsMessage) -> Boolean = { true }
     ): List<SmsMessage> {
+        val targetCount = limit.coerceIn(
+            SmsSettingsRepository.MIN_INBOX_LIMIT,
+            SmsSettingsRepository.MAX_INBOX_LIMIT
+        )
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
             Telephony.Sms._ID,
@@ -43,7 +47,7 @@ class SmsRepository(
             val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
             val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
 
-            while (cursor.moveToNext() && messages.size < limit) {
+            while (cursor.moveToNext() && messages.size < targetCount) {
                 val body = cursor.getString(bodyIndex).orEmpty()
                 val address = cursor.getString(addressIndex).orEmpty()
 

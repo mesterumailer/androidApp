@@ -5,14 +5,17 @@ import org.junit.Test
 
 class InboxReadModeTest {
     @Test
-    fun defaultInboxLimitIs250Messages() {
-        assertEquals(250, SmsSettingsRepository.DEFAULT_INBOX_LIMIT)
+    fun defaultReadyInboxLimitIs100AndCannotExceed100() {
+        assertEquals(100, SmsSettingsRepository.DEFAULT_INBOX_LIMIT)
+        assertEquals(100, SmsSettingsRepository.MAX_INBOX_LIMIT)
+        assertEquals(1, SmsSettingsRepository.MIN_INBOX_LIMIT)
     }
 
     @Test
     fun defaultReadyInboxCountIs100() {
         assertEquals(100, SmsSettingsRepository.DEFAULT_INBOX_LIMIT)
-        assertEquals(100, SmsSettingsRepository.MIN_INBOX_LIMIT)
+        assertEquals(100, SmsSettingsRepository.MAX_INBOX_LIMIT)
+        assertEquals(1, SmsSettingsRepository.MIN_INBOX_LIMIT)
     }
 
     @Test
