@@ -804,7 +804,7 @@ class MainActivity : BaseActivity() {
                 val accumulated = mutableListOf<SmsMessage>()
                 val targetCount = readSettings.limit.coerceIn(1, SmsSettingsRepository.MAX_INBOX_LIMIT)
 
-                lateinit var fetchNextBatch: (Long?, Long?, Int) -> Unit
+                var fetchNextBatch: ((Long?, Long?, Int) -> Unit)? = null
                 fun finishSearch() {
                     val messages = applyMessageOverrides(accumulated.toList())
                     runOnUiThread {
@@ -854,7 +854,7 @@ class MainActivity : BaseActivity() {
                                     if (token == processingToken && !isFinishing) {
                                         beginProcessing("در حال بررسی ۵۰۰ پیامک بعدی...")
                                         processingExecutor.execute {
-                                            fetchNextBatch(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
+                                            fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
                                         }
                                     }
                                 }
@@ -869,7 +869,7 @@ class MainActivity : BaseActivity() {
                     }
                 }
 
-                fetchNextBatch(null, null, 0)
+                fetchNextBatch?.invoke(null, null, 0)
             } catch (securityException: SecurityException) {
                 runOnUiThread {
                     if (token != processingToken || isFinishing) return@runOnUiThread
