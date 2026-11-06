@@ -783,53 +783,93 @@ class MainActivity : BaseActivity() {
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
                 val untilTimestampExclusive = if (readSettings.mode == InboxReadMode.UNTIL_DATE) {
                     readSettings.untilDateStartMillis?.let(::startOfNextDay)
-                } else {
-                    null
-                }
+                } else null
                 inboxSortOrder = readSettings.sortOrder
+
                 val activeCategoryIds = CategoryActivationRepository(this)
                     .activeCategoryIds(rules.map { it.categoryId } + SmsCategory.UNKNOWN.id)
                 val readyCategoryIds = CategoryVisibilityRepository(this)
                     .visibleCategoryIds(activeCategoryIds)
                 val blockSettings = SmsBlockRepository(this).getSettings()
-                val blockFilter = com.mesterumailer.smsmanager.util.SmsBlockFilter(
-                    blockedSenders = blockSettings.blockedSenders,
-                    blockedContent = blockSettings.blockedContent
-                )
+                val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
                 val trashedKeys = SmsTrashRepository(this).getKeys()
                 val messageOverrides = MessageOverrideRepository(this)
                 val normalizedQuery = SmsInboxFilter.normalize(searchQuery)
-                val messages = applyMessageOverrides(
-                    SmsRepository(
-                        contentResolver,
-                        rules,
-                        blockFilter,
-                        FilterRuleRepository(this@MainActivity).getSenderWeight()
-                    ).getInbox(
-                        limit = readSettings.limit,
-                        untilTimestampExclusive = untilTimestampExclusive,
-                        shouldInclude = { candidate ->
-                            val finalCategoryId = messageOverrides.getCategoryId(candidate.id)
-                                ?: candidate.analysis.categoryId
-                            val queryMatches = normalizedQuery.isBlank() ||
-                                SmsInboxFilter.normalize(candidate.body).contains(normalizedQuery) ||
-                                SmsInboxFilter.normalize(candidate.address).contains(normalizedQuery)
-                            finalCategoryId in readyCategoryIds &&
-                                SmsTrashRepository.keyFor(candidate) !in trashedKeys &&
-                                queryMatches
-                        }
-                    )
+                val repository = SmsRepository(
+                    contentResolver,
+                    rules,
+                    blockFilter,
+                    FilterRuleRepository(this@MainActivity).getSenderWeight()
                 )
-                runOnUiThread {
-                    if (token != processingToken || isFinishing) return@runOnUiThread
-                    currentRules = rules
-                    currentMessages = messages
-                    refreshSortButton()
-                    createCategoryFilterButtons()
-                    showPendingNotificationIfReady()
-                    requestRender("در حال نمایش پیام‌ها...")
-                    statusView.contentDescription = buildReadWindowSummary(readSettings)
+                val accumulated = mutableListOf<SmsMessage>()
+                val targetCount = readSettings.limit.coerceIn(1, SmsSettingsRepository.MAX_INBOX_LIMIT)
+
+                lateinit var fetchNextBatch: (Long?, Long?, Int) -> Unit
+                fun finishSearch() {
+                    val messages = applyMessageOverrides(accumulated.toList())
+                    runOnUiThread {
+                        if (token != processingToken || isFinishing) return@runOnUiThread
+                        currentRules = rules
+                        currentMessages = messages
+                        refreshSortButton()
+                        createCategoryFilterButtons()
+                        showPendingNotificationIfReady()
+                        requestRender("در حال نمایش پیام‌ها...")
+                        statusView.contentDescription = buildReadWindowSummary(readSettings)
+                        statusView.text = "${messages.size} پیام آماده نمایش"
+                    }
                 }
+
+                fetchNextBatch = { beforeTimestamp, beforeId, scannedSoFar ->
+                    val batch = repository.getInboxBatch(
+                        batchSize = SmsRepository.DEFAULT_SCAN_BATCH_SIZE,
+                        untilTimestampExclusive = untilTimestampExclusive,
+                        beforeTimestamp = beforeTimestamp,
+                        beforeId = beforeId
+                    ) { candidate ->
+                        val finalCategoryId = messageOverrides.getCategoryId(candidate.id)
+                            ?: candidate.analysis.categoryId
+                        val queryMatches = normalizedQuery.isBlank() ||
+                            SmsInboxFilter.normalize(candidate.body).contains(normalizedQuery) ||
+                            SmsInboxFilter.normalize(candidate.address).contains(normalizedQuery)
+                        finalCategoryId in readyCategoryIds &&
+                            SmsTrashRepository.keyFor(candidate) !in trashedKeys &&
+                            queryMatches
+                    }
+                    accumulated += batch.messages
+                    val totalScanned = scannedSoFar + batch.scannedCount
+                    if (accumulated.size >= targetCount || !batch.hasMore) {
+                        finishSearch()
+                    } else {
+                        runOnUiThread {
+                            if (token != processingToken || isFinishing) return@runOnUiThread
+                            endProcessing()
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("ادامه جست‌وجو؟")
+                                .setMessage(
+                                    "پس از بررسی $totalScanned پیامک، تعداد ${accumulated.size} پیام آماده نمایش پیدا شد. " +
+                                        "برای رسیدن به حداکثر $targetCount پیام، ۵۰۰ پیامک بعدی هم بررسی شوند؟"
+                                )
+                                .setPositiveButton("ادامه جست‌وجو") { _, _ ->
+                                    if (token == processingToken && !isFinishing) {
+                                        beginProcessing("در حال بررسی ۵۰۰ پیامک بعدی...")
+                                        processingExecutor.execute {
+                                            fetchNextBatch(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
+                                        }
+                                    }
+                                }
+                                .setNegativeButton("توقف و نمایش نتایج") { _, _ ->
+                                    if (token == processingToken && !isFinishing) finishSearch()
+                                }
+                                .setOnCancelListener {
+                                    if (token == processingToken && !isFinishing) finishSearch()
+                                }
+                                .show()
+                        }
+                    }
+                }
+
+                fetchNextBatch(null, null, 0)
             } catch (securityException: SecurityException) {
                 runOnUiThread {
                     if (token != processingToken || isFinishing) return@runOnUiThread
