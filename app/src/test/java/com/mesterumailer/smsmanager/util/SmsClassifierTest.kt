@@ -141,6 +141,39 @@ class SmsClassifierTest {
     }
 
     @Test
+    fun builtInSenderAliasesAreStoredInEditableCategoryRules() {
+        val rules = FilterRuleRepository.defaultRules()
+        val classifier = SmsClassifier(rules)
+        val transaction = rules.first { it.categoryId == "transaction" }
+        val delivery = rules.first { it.categoryId == "delivery" }
+        val promotion = rules.first { it.categoryId == "promotion" }
+        val service = rules.first { it.categoryId == "service" }
+        val otp = rules.first { it.categoryId == "otp" }
+
+        assertEquals(true, "tejaratbank" in transaction.senderContains)
+        assertEquals(16, classifier.senderWeightsFor(transaction)["tejaratbank"])
+        assertEquals(true, "tipax" in delivery.senderContains)
+        assertEquals(18, classifier.senderWeightsFor(delivery)["tipax"])
+        assertEquals(true, "azkivam" in promotion.senderContains)
+        assertEquals(12, classifier.senderWeightsFor(promotion)["azkivam"])
+        assertEquals(true, "digipay" in service.senderContains)
+        assertEquals(6, classifier.senderWeightsFor(service)["digipay"])
+        assertEquals(true, "تهران پیمنت" in otp.senderContains)
+        assertEquals(4, classifier.senderWeightsFor(otp)["تهران پیمنت"])
+    }
+
+    @Test
+    fun userSenderWeightsOverrideTheGenericFallbackScore() {
+        val rule = FilterRule(
+            categoryId = "custom",
+            displayName = "شخصی",
+            senderContains = listOf("my-sender"),
+            senderWeights = mapOf("my-sender" to 17)
+        )
+        assertEquals(17, SmsClassifier(listOf(rule)).senderWeightsFor(rule)["my-sender"])
+    }
+
+    @Test
     fun keepsUnmatchedMessageUnknown() {
         val result = classifier.analyze("دوست", "سلام، امروز ساعت 8 حرکت می‌کنیم")
         assertEquals(SmsCategory.UNKNOWN, result.category)

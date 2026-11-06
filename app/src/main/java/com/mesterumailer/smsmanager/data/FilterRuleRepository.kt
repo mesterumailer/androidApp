@@ -8,7 +8,7 @@ class FilterRuleRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
     fun loadRules(): List<FilterRule> {
-        val stored = preferences.getString(KEY_RULES, null) ?: return defaultRules()
+        val stored = preferences.getString(KEY_RULES, null) ?: return defaultRulesForCurrentSenderWeight()
         val loaded = runCatching {
             val array = JSONArray(stored)
             buildList(array.length()) {
@@ -16,7 +16,7 @@ class FilterRuleRepository(context: Context) {
                     add(FilterRule.fromJson(array.getJSONObject(i)))
                 }
             }.filter { it.categoryId.isNotBlank() && it.displayName.isNotBlank() }
-        }.getOrElse { return defaultRules() }
+        }.getOrElse { return defaultRulesForCurrentSenderWeight() }
 
         return migrateUnmodifiedLegacyDefaults(loaded)
     }
@@ -24,11 +24,42 @@ class FilterRuleRepository(context: Context) {
     private fun migrateUnmodifiedLegacyDefaults(rules: List<FilterRule>): List<FilterRule> {
         val legacy = (legacyDefaultRules() + previousReleaseDefaultRules()).groupBy { it.categoryId }
         val current = defaultRules().associateBy { it.categoryId }
+        val multiplier = getSenderWeight()
         val migrated = rules.map { rule ->
-            if (legacy[rule.categoryId].orEmpty().any { it == rule }) current[rule.categoryId] ?: rule else rule
+            val wasUnmodifiedBuiltIn = legacy[rule.categoryId].orEmpty().any { it == rule }
+            val source = if (wasUnmodifiedBuiltIn) current[rule.categoryId] ?: rule else rule
+            migrateBuiltInSenderList(source, multiplier, replaceBuiltInWeights = wasUnmodifiedBuiltIn)
         }
         if (migrated != rules) saveRules(migrated)
         return migrated
+    }
+
+    /**
+     * Moves the former classifier-owned sender aliases into each category's editable
+     * FilterRule list. Existing user weights always win; only missing defaults are migrated.
+     */
+    private fun migrateBuiltInSenderList(
+        rule: FilterRule,
+        multiplier: Int,
+        replaceBuiltInWeights: Boolean = false
+    ): FilterRule {
+        val template = defaultRules().firstOrNull { it.categoryId == rule.categoryId } ?: return rule
+        val senders = (rule.senderContains + template.senderWeights.keys)
+            .distinctBy { it.trim().lowercase() }
+        val weights = rule.senderWeights.toMutableMap()
+        template.senderWeights.forEach { (alias, defaultFinalWeight) ->
+            val existing = weights.keys.firstOrNull { it.trim().equals(alias.trim(), ignoreCase = true) }
+            if (replaceBuiltInWeights || existing == null) {
+                // Template weights are based on the former default multiplier (2).
+                weights[existing ?: alias] = (defaultFinalWeight / DEFAULT_SENDER_WEIGHT) * multiplier
+            }
+        }
+        return rule.copy(senderContains = senders, senderWeights = weights)
+    }
+
+    private fun defaultRulesForCurrentSenderWeight(): List<FilterRule> {
+        val multiplier = getSenderWeight()
+        return defaultRules().map { migrateBuiltInSenderList(it, multiplier, replaceBuiltInWeights = true) }
     }
 
     fun getSenderWeight(): Int = preferences.getInt(KEY_SENDER_WEIGHT, 2).coerceIn(0, 5)
@@ -65,18 +96,20 @@ class FilterRuleRepository(context: Context) {
         return true
     }
 
-    fun resetToDefaults() = saveRules(defaultRules())
+    fun resetToDefaults() = saveRules(defaultRulesForCurrentSenderWeight())
 
     companion object {
         private const val PREFERENCES_NAME = "sms_manager_settings"
         private const val KEY_RULES = "filter_rules"
         private const val KEY_SENDER_WEIGHT = "classification_sender_weight"
+        private const val DEFAULT_SENDER_WEIGHT = 2
 
         fun defaultRules(): List<FilterRule> = listOf(
             FilterRule(
                 categoryId = "otp",
                 displayName = "کد تأیید",
-                senderContains = listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید"),
+                senderContains = listOf("verify", "otp", "auth", "امنیت", "تایید", "تأیید", "تهران پیمنت", "98200090070"),
+                senderWeights = mapOf("تهران پیمنت" to 4, "98200090070" to 4),
                 anyKeywords = listOf(
                     "رمز پویا", "رمز یکبار مصرف", "رمز یک‌بار مصرف", "کد تایید", "کد تأیید",
                     "کد ورود", "کد فعالسازی", "کد امنیتی", "verification code", "one-time", "otp", "code"
@@ -88,7 +121,8 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "promotion",
                 displayName = "تبلیغاتی",
-                senderContains = listOf("ads", "advert", "marketing", "promo"),
+                senderContains = listOf("ads", "advert", "marketing", "promo", "snapp", "mci club", "azkivam", "dk sellers", "mci academy"),
+                senderWeights = mapOf("snapp" to 6, "mci club" to 10, "azkivam" to 12, "dk sellers" to 8, "mci academy" to 10),
                 anyKeywords = listOf(
                     "تخفیف", "تخفیفی", "حراج", "پیشنهاد ویژه", "کد تخفیف", "فروش ویژه", "جشنواره",
                     "کف خرید", "حداقل خرید", "خرید اقساطی", "اقساطی", "اعتبارت بخر", "هدیه",
@@ -112,7 +146,8 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "service",
                 displayName = "خدمات",
-                senderContains = listOf("service", "support", "notify", "سرویس", "policefata"),
+                senderContains = listOf("service", "support", "notify", "سرویس", "policefata", "تهران پیمنت", "98200090070", "digipay", "دیجی پی", "کافه ارز", "ایساکو"),
+                senderWeights = mapOf("تهران پیمنت" to 8, "98200090070" to 8, "digipay" to 6, "دیجی پی" to 6, "کافه ارز" to 6, "ایساکو" to 6),
                 anyKeywords = listOf(
                     "فعال سازی", "فعالسازی", "غیرفعال سازی", "غیرفعالسازی", "اشتراک", "تمدید",
                     "قبض", "یادآوری", "اعلان", "درخواست", "خدمات", "اختلال", "سرویس دهی",
@@ -136,7 +171,8 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "delivery",
                 displayName = "ارسال و تحویل",
-                senderContains = listOf("post", "delivery", "courier", "پست", "ارسال", "مرسوله"),
+                senderContains = listOf("post", "delivery", "courier", "پست", "ارسال", "مرسوله", "tipax", "تیپاکس", "iran post", "snappfood"),
+                senderWeights = mapOf("tipax" to 18, "تیپاکس" to 18, "iran post" to 18, "پست" to 14, "snappfood" to 6),
                 anyKeywords = listOf(
                     "مرسوله", "پستچی", "پستی", "بسته پستی", "تحویل پست", "پست شد",
                     "توزیع مرسوله", "کد رهگیری مرسوله", "رهگیری پست", "پیک",
@@ -148,7 +184,8 @@ class FilterRuleRepository(context: Context) {
             FilterRule(
                 categoryId = "transaction",
                 displayName = "تراکنش مالی",
-                senderContains = listOf("bank", "بانک", "shaparak", "payment", "card"),
+                senderContains = listOf("bank", "بانک", "shaparak", "payment", "card", "tejaratbank", "b.qmehriran", "بانک مهر", "بانک ملی", "bank melli", "بانک تجارت", "بانک سپه", "بانک ملت"),
+                senderWeights = mapOf("tejaratbank" to 16, "b.qmehriran" to 18, "بانک مهر" to 16, "بانک ملی" to 16, "bank melli" to 16, "بانک تجارت" to 16, "بانک سپه" to 16, "بانک ملت" to 16, "shaparak" to 14),
                 anyKeywords = listOf(
                     "واریز:", "واریز مبلغ", "برداشت:", "برداشت مبلغ", "انتقال وجه", "انتقال به",
                     "کارت به کارت", "خرید به مبلغ", "خرید با کارت", "پرداخت قسط قرارداد",

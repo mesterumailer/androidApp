@@ -5,8 +5,8 @@ import com.mesterumailer.smsmanager.model.SmsAnalysis
 import com.mesterumailer.smsmanager.model.SmsCategory
 
 /**
- * Offline weighted classifier. Phrase evidence is counted once per message;
- * sender evidence is multiplied by senderWeight (default 2).
+ * Offline weighted classifier. Phrase evidence is counted once per message.
+ * Sender identities and their individual weights are supplied by editable category rules.
  */
 class SmsClassifier(
     private val rules: List<FilterRule>,
@@ -47,14 +47,6 @@ class SmsClassifier(
         )
     )
 
-    private val senderWeights = mapOf(
-        "transaction" to mapOf("tejaratbank" to 8, "b.qmehriran" to 9, "بانک مهر" to 8, "بانک ملی" to 8, "bank melli" to 8, "بانک تجارت" to 8, "بانک سپه" to 8, "بانک ملت" to 8, "shaparak" to 7),
-        "service" to mapOf("تهران پیمنت" to 4, "98200090070" to 4, "digipay" to 3, "دیجی پی" to 3, "کافه ارز" to 3, "ایساکو" to 3),
-        "delivery" to mapOf("tipax" to 9, "تیپاکس" to 9, "iran post" to 9, "پست" to 7, "snappfood" to 3),
-        "promotion" to mapOf("snapp" to 3, "mci club" to 5, "azkivam" to 6, "dk sellers" to 4, "mci academy" to 5),
-        "otp" to mapOf("تهران پیمنت" to 2, "98200090070" to 2)
-    )
-
     /**
      * Returns all phrase weights used for this category, including built-in defaults,
      * the category's own rule phrases, and the user's explicit overrides.
@@ -71,15 +63,14 @@ class SmsClassifier(
     }
 
     /**
-     * Sender weights are displayed and edited as final score values. The legacy multiplier
-     * applies only to untouched defaults so existing installations retain their behavior.
+     * Sender aliases belong to the editable category rule, never to this classifier.
+     * Generic aliases receive the standard fallback score; explicit per-sender values win.
      */
     fun senderWeightsFor(rule: FilterRule): Map<String, Int> = buildMap {
-        senderWeights[rule.categoryId].orEmpty().forEach { (alias, value) ->
-            put(alias, value * senderWeight.coerceIn(0, 5))
+        rule.senderContains.distinct().forEach {
+            put(it, 2 * senderWeight.coerceIn(0, 5))
         }
-        rule.senderContains.distinct().forEach { putIfAbsent(it, 2 * senderWeight.coerceIn(0, 5)) }
-        val allowed = (keys + rule.senderContains).toSet()
+        val allowed = rule.senderContains.toSet()
         rule.senderWeights.filterKeys { it in allowed }.forEach { (alias, value) ->
             put(alias, value.coerceIn(-20, 20))
         }
