@@ -90,6 +90,8 @@ class MainActivity : BaseActivity() {
     private val processingExecutor = Executors.newSingleThreadExecutor()
     private val adExecutor = Executors.newSingleThreadExecutor()
     private var processingToken = 0L
+    // Tracks the inbox scan lifecycle independently from the processing-overlay lifecycle.
+    private var inboxLoadToken = 0L
     private var processingShowTask: Runnable? = null
     private var searchReloadTask: Runnable? = null
 
@@ -773,13 +775,14 @@ class MainActivity : BaseActivity() {
     }
 
     private fun loadInbox() {
+        // A new inbox load supersedes any earlier scan, including one awaiting a dialog choice.
+        val loadToken = ++inboxLoadToken
         if (!hasRequiredSmsPermissions()) {
             statusView.text = "برای خواندن Inbox باید اجازه دسترسی به پیامک‌ها را بدهید."
             return
         }
 
         beginProcessing("در حال خواندن پیامک‌ها...")
-        val token = processingToken
         val searchQuery = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
             try {
@@ -812,7 +815,7 @@ class MainActivity : BaseActivity() {
                 fun finishSearch() {
                     val messages = applyMessageOverrides(accumulated.toList())
                     runOnUiThread {
-                        if (token != processingToken || isFinishing) return@runOnUiThread
+                        if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                         currentRules = rules
                         currentMessages = messages
                         refreshSortButton()
@@ -847,7 +850,7 @@ class MainActivity : BaseActivity() {
                         finishSearch()
                     } else {
                         runOnUiThread {
-                            if (token != processingToken || isFinishing) return@runOnUiThread
+                            if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                             endProcessing()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("ادامه جست‌وجو؟")
@@ -856,7 +859,7 @@ class MainActivity : BaseActivity() {
                                         "برای رسیدن به حداکثر $targetCount پیام، ۵۰۰ پیامک بعدی هم بررسی شوند؟"
                                 )
                                 .setPositiveButton("ادامه جست‌وجو") { _, _ ->
-                                    if (token == processingToken && !isFinishing) {
+                                    if (loadToken == inboxLoadToken && !isFinishing) {
                                         beginProcessing("در حال بررسی ۵۰۰ پیامک بعدی...")
                                         processingExecutor.execute {
                                             fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
@@ -864,10 +867,10 @@ class MainActivity : BaseActivity() {
                                     }
                                 }
                                 .setNegativeButton("توقف و نمایش نتایج") { _, _ ->
-                                    if (token == processingToken && !isFinishing) finishSearch()
+                                    if (loadToken == inboxLoadToken && !isFinishing) finishSearch()
                                 }
                                 .setOnCancelListener {
-                                    if (token == processingToken && !isFinishing) finishSearch()
+                                    if (loadToken == inboxLoadToken && !isFinishing) finishSearch()
                                 }
                                 .show()
                         }
@@ -877,13 +880,13 @@ class MainActivity : BaseActivity() {
                 fetchNextBatch?.invoke(null, null, 0)
             } catch (securityException: SecurityException) {
                 runOnUiThread {
-                    if (token != processingToken || isFinishing) return@runOnUiThread
+                    if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                     endProcessing()
                     statusView.text = "دسترسی به پیامک‌ها رد شده است."
                 }
             } catch (exception: Exception) {
                 runOnUiThread {
-                    if (token != processingToken || isFinishing) return@runOnUiThread
+                    if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                     endProcessing()
                     statusView.text = "خطا در خواندن پیامک‌ها: " + (exception.message ?: "خطای نامشخص")
                 }
