@@ -776,6 +776,7 @@ class MainActivity : BaseActivity() {
 
         beginProcessing("در حال خواندن پیامک‌ها...")
         val token = processingToken
+        val searchQuery = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
             try {
                 val rules = FilterRuleRepository(this).loadRules()
@@ -797,8 +798,7 @@ class MainActivity : BaseActivity() {
                 )
                 val trashedKeys = SmsTrashRepository(this).getKeys()
                 val messageOverrides = MessageOverrideRepository(this)
-                val query = searchInput.text?.toString().orEmpty()
-                val normalizedQuery = SmsInboxFilter.normalize(query)
+                val normalizedQuery = SmsInboxFilter.normalize(searchQuery)
                 val messages = applyMessageOverrides(
                     SmsRepository(
                         contentResolver,

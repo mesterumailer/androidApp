@@ -20,10 +20,7 @@ class SmsRepository(
         untilTimestampExclusive: Long? = null,
         shouldInclude: (SmsMessage) -> Boolean = { true }
     ): List<SmsMessage> {
-        val targetCount = limit.coerceIn(
-            SmsSettingsRepository.MIN_INBOX_LIMIT,
-            SmsSettingsRepository.MAX_INBOX_LIMIT
-        )
+        val targetCount = SmsSettingsRepository.clampInboxLimit(limit)
         val messages = mutableListOf<SmsMessage>()
         val projection = arrayOf(
             Telephony.Sms._ID,

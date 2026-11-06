@@ -44,6 +44,9 @@ class SmsSettingsRepository(context: Context) {
         const val MIN_INBOX_LIMIT = MIN_LIMIT
         const val MAX_INBOX_LIMIT = MAX_LIMIT
 
+        fun clampInboxLimit(value: Int): Int =
+            value.coerceIn(MIN_INBOX_LIMIT, MAX_INBOX_LIMIT)
+
         private const val PREFS = "sms_settings"
         private const val KEY_INBOX_LIMIT = "inbox_limit"
         private const val KEY_INBOX_READ_MODE = "inbox_read_mode"
@@ -54,12 +57,11 @@ class SmsSettingsRepository(context: Context) {
     private val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun getInboxLimit(): Int =
-        preferences.getInt(KEY_INBOX_LIMIT, DEFAULT_LIMIT)
-            .coerceIn(MIN_LIMIT, MAX_LIMIT)
+        clampInboxLimit(preferences.getInt(KEY_INBOX_LIMIT, DEFAULT_LIMIT))
 
     fun setInboxLimit(value: Int) {
         preferences.edit()
-            .putInt(KEY_INBOX_LIMIT, value.coerceIn(MIN_LIMIT, MAX_LIMIT))
+            .putInt(KEY_INBOX_LIMIT, clampInboxLimit(value))
             .apply()
     }
 

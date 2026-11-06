@@ -12,10 +12,13 @@ class InboxReadModeTest {
     }
 
     @Test
-    fun defaultReadyInboxCountIs100() {
-        assertEquals(100, SmsSettingsRepository.DEFAULT_INBOX_LIMIT)
-        assertEquals(100, SmsSettingsRepository.MAX_INBOX_LIMIT)
-        assertEquals(1, SmsSettingsRepository.MIN_INBOX_LIMIT)
+    fun inboxLimitIsAlwaysClampedToOneThroughOneHundred() {
+        assertEquals(100, SmsSettingsRepository.clampInboxLimit(250))
+        assertEquals(100, SmsSettingsRepository.clampInboxLimit(5000))
+        assertEquals(100, SmsSettingsRepository.clampInboxLimit(100))
+        assertEquals(1, SmsSettingsRepository.clampInboxLimit(0))
+        assertEquals(1, SmsSettingsRepository.clampInboxLimit(-5))
+        assertEquals(1, SmsSettingsRepository.clampInboxLimit(1))
     }
 
     @Test
