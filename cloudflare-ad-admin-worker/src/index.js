@@ -257,7 +257,8 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/admin/ads") {
       try {
         return json({ ads: await listAds(env.DB) });
-      } catch {
+      } catch (error) {
+        console.error("Ads admin list failure:", error);
         return json({ error: "خواندن فهرست تبلیغات از D1 ممکن نشد." }, 500);
       }
     }
