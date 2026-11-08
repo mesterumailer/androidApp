@@ -17,6 +17,18 @@ function makeEnv() {
     DB: {
       prepare(sql) {
         return {
+          async all() {
+            return {
+              results: [{
+                id: 1, slug: "yajing-chinese", placement: "home_bottom",
+                title: "آموزش زبان چینی", description: "یادگیری زبان چینی",
+                cta_text: "مشاهده سایت", target_url: "https://yajingchinese.ir",
+                is_active: 1, priority: 100, weight: 3, impressions: 12,
+                click_count: 2, image_url: null, starts_at: null, ends_at: null,
+                updated_at: "2026-11-09 00:00:00",
+              }],
+            };
+          },
           bind() {
             return {
               async all() {
