@@ -10,18 +10,64 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
 
-function activeAdSql() {
+function activeAdsSql() {
   return `
     SELECT id, slug, placement, title, description, cta_text, image_url,
-           target_url, priority, updated_at
+           target_url, priority, weight, updated_at
     FROM ads
     WHERE is_active = 1
       AND placement = ?
+      AND weight > 0
       AND (starts_at IS NULL OR starts_at <= CURRENT_TIMESTAMP)
       AND (ends_at IS NULL OR ends_at >= CURRENT_TIMESTAMP)
-    ORDER BY priority DESC, id DESC
-    LIMIT 1
+    ORDER BY priority DESC, id ASC
   `;
+}
+
+async function selectWeightedAd(db, placement) {
+  const result = await db.prepare(activeAdsSql()).bind(placement).all();
+  const ads = result?.results || [];
+  if (!ads.length) return null;
+
+  const totalWeight = ads.reduce((sum, ad) => sum + Math.max(0, Number(ad.weight) || 0), 0);
+  if (totalWeight <= 0) return null;
+
+  await db.prepare(`
+    INSERT OR IGNORE INTO ads_rotation_state (placement, counter)
+    VALUES (?, 0)
+  `).bind(placement).run();
+
+  // Atomic increment: concurrent requests receive unique rotation slots.
+  const rotation = await db.prepare(`
+    UPDATE ads_rotation_state
+    SET counter = counter + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE placement = ?
+    RETURNING counter
+  `).bind(placement).first();
+
+  const sequence = Number(rotation?.counter);
+  if (!Number.isFinite(sequence) || sequence < 1) {
+    throw new Error("Ad rotation counter is unavailable");
+  }
+
+  let slot = (sequence - 1) % totalWeight;
+  for (const ad of ads) {
+    const weight = Math.max(0, Number(ad.weight) || 0);
+    if (slot < weight) {
+      // This is a selection/impression opportunity, not proof of visible pixels.
+      try {
+        await db.prepare(`
+          UPDATE ads SET impressions = impressions + 1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(ad.id).run();
+      } catch {
+        // Do not hide a valid ad if aggregate analytics are temporarily unavailable.
+      }
+      return ad;
+    }
+    slot -= weight;
+  }
+  return null;
 }
 
 export default {
@@ -51,7 +97,7 @@ export default {
       }
 
       try {
-        const ad = await env.DB.prepare(activeAdSql()).bind(placement).first();
+        const ad = await selectWeightedAd(env.DB, placement);
         if (!ad) return json({ ad: null });
 
         const origin = url.origin;

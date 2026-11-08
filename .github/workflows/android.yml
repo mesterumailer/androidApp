@@ -44,11 +44,11 @@ jobs:
           import pathlib
           import sqlite3
 
-          sql = pathlib.Path("cloudflare-ad-worker/migrations/0001_ads.sql").read_text(encoding="utf-8")
           db = sqlite3.connect(":memory:")
-          db.executescript(sql)
+          for migration in sorted(pathlib.Path("cloudflare-ad-worker/migrations").glob("*.sql")):
+              db.executescript(migration.read_text(encoding="utf-8"))
           row = db.execute(
-              "SELECT title, target_url, image_mime, image_base64 FROM ads WHERE slug = ?",
+              "SELECT title, target_url, image_mime, image_base64, weight, impressions FROM ads WHERE slug = ?",
               ("yajing-chinese",),
           ).fetchone()
           assert row is not None, "Initial Yajing ad was not seeded"
@@ -57,7 +57,11 @@ jobs:
           assert row[2] == "image/webp"
           image = base64.b64decode(row[3], validate=True)
           assert image[:4] == b"RIFF" and image[8:12] == b"WEBP", "Seeded image is not a WebP file"
-          print(f"D1 seed is valid; banner image is {len(image)} bytes")
+          assert row[4] == 3, "Yajing default rotation weight should be 3"
+          assert row[5] == 0, "New migration should start with zero impressions"
+          rotation = db.execute("SELECT counter FROM ads_rotation_state WHERE placement = ?", ("home_bottom",)).fetchone()
+          assert rotation == (0,), "Rotation state was not initialized"
+          print(f"D1 migrations and Yajing banner are valid; banner image is {len(image)} bytes")
           PY
 
       - name: Build debug APK and run unit tests
