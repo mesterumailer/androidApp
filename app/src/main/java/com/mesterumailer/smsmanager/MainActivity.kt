@@ -114,7 +114,7 @@ class MainActivity : BaseActivity() {
         if (!hasRequiredSmsPermissions()) {
             requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), smsPermissionRequestCode)
         } else {
-            loadInbox()
+            // onResume performs the initial inbox load; avoid queuing the same scan twice.
             scheduleBatterySetupPrompt()
         }
     }
@@ -856,11 +856,11 @@ class MainActivity : BaseActivity() {
                                 .setTitle("ادامه جست‌وجو؟")
                                 .setMessage(
                                     "پس از بررسی $totalScanned پیامک، تعداد ${accumulated.size} پیام آماده نمایش پیدا شد. " +
-                                        "برای رسیدن به حداکثر $targetCount پیام، ۵۰۰ پیامک بعدی هم بررسی شوند؟"
+                                        "برای رسیدن به حداکثر $targetCount پیام، ${SmsRepository.DEFAULT_SCAN_BATCH_SIZE} پیامک بعدی هم بررسی شوند؟"
                                 )
                                 .setPositiveButton("ادامه جست‌وجو") { _, _ ->
                                     if (loadToken == inboxLoadToken && !isFinishing) {
-                                        beginProcessing("در حال بررسی ۵۰۰ پیامک بعدی...")
+                                        beginProcessing("در حال بررسی ${SmsRepository.DEFAULT_SCAN_BATCH_SIZE} پیامک بعدی...")
                                         processingExecutor.execute {
                                             fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
                                         }

@@ -12,7 +12,21 @@ class SmsClassifier(
     private val rules: List<FilterRule>,
     private val senderWeight: Int = DEFAULT_SENDER_WEIGHT
 ) {
+    private data class PreparedRule(
+        val categoryId: String,
+        val keywordWeights: List<Pair<String, Int>>,
+        val requiredKeywords: List<String>,
+        val senderWeights: List<Pair<String, Int>>,
+        val anyKeywords: List<String>,
+        val minimumAnyMatches: Int,
+        val priority: Int
+    )
+
     private val numberRegex = Regex("(?<!\\d)\\d{4,8}(?!\\d)")
+    private val amountRegex = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+|[\\d,۰-۹]+\\s*(?:ریال|تومان)")
+    private val otpIntentPhrases = listOf("کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود", "جهت ورود", "وارد نمایید").map(::normalize)
+    private val moneyActionPhrases = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:", "تراکنش").map(::normalize)
+    private val parcelPhrases = listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax", "پستچی", "پست شد", "رهگیری سفارش", "توسط پیک").map(::normalize)
 
     private val textWeights = mapOf(
         "otp" to weights(
@@ -46,6 +60,19 @@ class SmsClassifier(
             -10 to listOf("تخفیف", "جایزه", "پیشنهاد ویژه", "خرید میوه", "پخش زنده", "دریافت وام")
         )
     )
+
+    // Build matching data once, not once for every SMS in the inbox.
+    private val preparedRules = rules.map { rule ->
+        PreparedRule(
+            categoryId = rule.categoryId,
+            keywordWeights = keywordWeightsFor(rule).map { (phrase, value) -> normalize(phrase) to value },
+            requiredKeywords = rule.requiredKeywords.distinct().map(::normalize),
+            senderWeights = senderWeightsFor(rule).map { (alias, value) -> normalize(alias) to value },
+            anyKeywords = rule.anyKeywords.distinct().map(::normalize),
+            minimumAnyMatches = rule.minimumAnyMatches,
+            priority = rule.priority
+        )
+    }
 
     /**
      * Returns all phrase weights used for this category, including built-in defaults,
@@ -81,21 +108,20 @@ class SmsClassifier(
         val text = normalize(body)
         val scores = linkedMapOf<String, Int>()
 
-        rules.forEach { rule ->
+        preparedRules.forEach { rule ->
             val category = rule.categoryId
             var score = 0
-            keywordWeightsFor(rule).forEach { (phrase, value) ->
-                if (value != 0 && normalize(phrase) in text) score += value
+            rule.keywordWeights.forEach { (phrase, value) ->
+                if (value != 0 && phrase in text) score += value
             }
-            rule.requiredKeywords.distinct().forEach {
-                if (normalize(it) !in text) score -= 10
+            rule.requiredKeywords.forEach {
+                if (it !in text) score -= 10
             }
-            senderWeightsFor(rule).forEach { (alias, value) ->
-                if (value != 0 && normalize(alias) in sender) score += value
+            rule.senderWeights.forEach { (alias, value) ->
+                if (value != 0 && alias in sender) score += value
             }
-            // Minimum-match and priority settings now modify scores in this same engine.
             if (rule.minimumAnyMatches > 1) {
-                val anyHits = rule.anyKeywords.distinct().count { normalize(it) in text }
+                val anyHits = rule.anyKeywords.count { it in text }
                 if (anyHits < rule.minimumAnyMatches) score -= 10
             }
             if (category !in textWeights.keys && score > 0) {
@@ -105,13 +131,11 @@ class SmsClassifier(
         }
 
         val hasCode = numberRegex.containsMatchIn(text)
-        val hasOtpIntent = listOf("کد بازیابی", "رمز پویا", "رمز یکبار مصرف", "کد تایید", "کد تأیید", "کد ورود", "جهت ورود", "وارد نمایید")
-            .any { normalize(it) in text } && "کد" in text
+        val hasOtpIntent = otpIntentPhrases.any { it in text } && "کد" in text
         if (!hasCode || !hasOtpIntent) scores["otp"] = minOf(scores["otp"] ?: 0, 0)
 
-        val hasAmount = Regex("(?:مبلغ|واریز|برداشت|انتقال|قسط)\\s*[:：]?\\s*[\\d,۰-۹]+|[\\d,۰-۹]+\\s*(?:ریال|تومان)").containsMatchIn(text)
-        val hasMoneyAction = listOf("واریز", "برداشت", "انتقال", "خرید", "پرداخت", "قسط:", "تراکنش")
-            .any { normalize(it) in text }
+        val hasAmount = amountRegex.containsMatchIn(text)
+        val hasMoneyAction = moneyActionPhrases.any { it in text }
 
         // A numeric authentication code with explicit OTP intent must beat generic
         // login/service wording, unless the same SMS clearly describes a money action.
@@ -125,8 +149,7 @@ class SmsClassifier(
         val completedInstallment = "پرداخت قسط قرارداد" in text && "با موفقیت پرداخت شد" in text
         if ((!hasAmount || !hasMoneyAction) && !completedInstallment) scores["transaction"] = minOf(scores["transaction"] ?: 0, 0)
 
-        val hasParcelContext = listOf("مرسوله", "بسته پستی", "تیپاکس", "tipax", "پستچی", "پست شد", "رهگیری سفارش", "توسط پیک")
-            .any { normalize(it) in text }
+        val hasParcelContext = parcelPhrases.any { it in text }
         if (!hasParcelContext) scores["delivery"] = minOf(scores["delivery"] ?: 0, 0)
 
         val ranked = scores.entries.sortedByDescending { it.value }
