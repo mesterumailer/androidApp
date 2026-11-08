@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - 'feature/phase-1-sms-inbox'
+      - 'feature/ad-rotation-admin-performance'
       - 'release/v*'
       - 'candidate/**'
     tags:
