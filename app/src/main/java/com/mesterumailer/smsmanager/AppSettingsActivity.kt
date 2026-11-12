@@ -936,7 +936,7 @@ class AppSettingsActivity : BaseActivity() {
         val editor = EditText(this).apply {
             setText(current.toString())
             selectAll()
-            hint = "مثلاً 100"
+            hint = "مثلاً 1000"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine(true)
         }

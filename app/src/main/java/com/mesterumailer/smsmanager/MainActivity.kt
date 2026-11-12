@@ -795,6 +795,7 @@ class MainActivity : BaseActivity() {
 
                 val activeCategoryIds = CategoryActivationRepository(this)
                     .activeCategoryIds(rules.map { it.categoryId } + SmsCategory.UNKNOWN.id)
+                val classificationRules = CategoryActivationRepository.filterActiveRules(rules, activeCategoryIds)
                 val readyCategoryIds = CategoryVisibilityRepository(this)
                     .visibleCategoryIds(activeCategoryIds)
                 val blockSettings = SmsBlockRepository(this).getSettings()
@@ -804,12 +805,15 @@ class MainActivity : BaseActivity() {
                 val normalizedQuery = SmsInboxFilter.normalize(searchQuery)
                 val repository = SmsRepository(
                     contentResolver,
-                    rules,
+                    classificationRules,
                     blockFilter,
                     FilterRuleRepository(this@MainActivity).getSenderWeight()
                 )
                 val accumulated = mutableListOf<SmsMessage>()
-                val targetCount = readSettings.limit.coerceIn(1, SmsSettingsRepository.MAX_INBOX_LIMIT)
+                val targetCount = readSettings.limit.coerceIn(
+                    SmsSettingsRepository.MIN_INBOX_LIMIT,
+                    SmsSettingsRepository.MAX_INBOX_LIMIT
+                )
 
                 var fetchNextBatch: ((Long?, Long?, Int) -> Unit)? = null
                 fun finishSearch() {

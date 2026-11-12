@@ -9,6 +9,7 @@ import android.content.ClipboardManager
 import android.os.Build
 import android.os.PersistableBundle
 import android.provider.Telephony
+import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
 import com.mesterumailer.smsmanager.data.SmsNotificationSettingsRepository
@@ -41,13 +42,16 @@ class SmsReceiver : BroadcastReceiver() {
         ).isBlocked(address, body)
         if (isBlocked) return
 
-        val rules = FilterRuleRepository(context).loadRules()
-        // Notification routing is intentionally independent from Inbox category activation.
-        // A category may be hidden/disabled in the UI while still having its own notification enabled.
-        val classifier = SmsClassifier(rules, FilterRuleRepository(context).getSenderWeight())
+        val ruleRepository = FilterRuleRepository(context)
+        val allRules = ruleRepository.loadRules()
+        val activeRuleIds = CategoryActivationRepository(context)
+            .activeCategoryIds(allRules.map { it.categoryId })
+        val activeRules = CategoryActivationRepository.filterActiveRules(allRules, activeRuleIds)
+        // Disabled categories cannot classify new SMS through their rules.
+        val classifier = SmsClassifier(activeRules, ruleRepository.getSenderWeight())
         val analysis = classifier.analyze(address, body)
         val categoryId = analysis.categoryId
-        val categoryLabel = rules.firstOrNull { it.categoryId == categoryId }?.displayName
+        val categoryLabel = activeRules.firstOrNull { it.categoryId == categoryId }?.displayName
             ?: SmsCategory.fromId(categoryId).label
 
         val settings = SmsNotificationSettingsRepository(context)

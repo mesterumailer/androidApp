@@ -1,6 +1,7 @@
 package com.mesterumailer.smsmanager.data
 
 import android.content.Context
+import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsCategory
 
 /**
@@ -33,6 +34,12 @@ class CategoryActivationRepository(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "category_activation"
+
+        /** Keeps only category rules whose category is currently enabled. */
+        fun filterActiveRules(
+            rules: Collection<FilterRule>,
+            activeCategoryIds: Set<String>
+        ): List<FilterRule> = rules.filter { it.categoryId in activeCategoryIds }
 
         fun isActiveByDefault(categoryId: String): Boolean =
             categoryId != SmsCategory.SERVICE.id &&
