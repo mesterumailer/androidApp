@@ -32,6 +32,16 @@ class SmsInboxFilterTest {
     }
 
     @Test
+    fun normalizedSearchIndexIsInvalidatedWhenSameMessageIdChanges() {
+        val original = message(77, "فرستنده", "پیام تازه")
+        assertTrue(SmsInboxFilter.matchesNormalizedQuery(original, "پیام"))
+
+        val updated = original.copy(body = "متن کاملاً متفاوت")
+        assertEquals(false, SmsInboxFilter.matchesNormalizedQuery(updated, "پیام"))
+        assertTrue(SmsInboxFilter.matchesNormalizedQuery(updated, "متن"))
+    }
+
+    @Test
     fun normalizesPersianAndArabicVariants() {
         assertTrue(SmsInboxFilter.normalize("كی‌م") .contains("کیم"))
         assertEquals("۱۲۳۴۵", "۱۲۳۴۵")
