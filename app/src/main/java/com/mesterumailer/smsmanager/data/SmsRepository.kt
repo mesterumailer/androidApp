@@ -19,7 +19,8 @@ class SmsRepository(
     private val contentResolver: ContentResolver,
     rules: List<FilterRule>,
     private val blockFilter: SmsBlockFilter = SmsBlockFilter(emptyList(), emptyList()),
-    senderWeight: Int = SmsClassifier.DEFAULT_SENDER_WEIGHT
+    senderWeight: Int = SmsClassifier.DEFAULT_SENDER_WEIGHT,
+    private val classificationCache: SmsClassificationCache? = null
 ) {
     private val classifier = SmsClassifier(rules, senderWeight)
 
@@ -87,14 +88,23 @@ class SmsRepository(
                     address = address,
                     body = body,
                     timestamp = timestamp,
-                    analysis = classifier.analyze(address, body)
+                    analysis = classificationCache?.get(id, address, body)
+                        ?: classifier.analyze(address, body).also { analysis ->
+                            classificationCache?.put(id, address, body, analysis)
+                        }
                 )
                 if (shouldInclude(candidate)) messages += candidate
             }
             hasMore = scanned == safeBatchSize && cursor.moveToNext()
         }
 
+        classificationCache?.flush()
         return SmsInboxBatch(messages, scanned, lastTimestamp, lastId, hasMore)
+    }
+
+    fun close() {
+        runCatching { classificationCache?.flush() }
+        runCatching { classificationCache?.close() }
     }
 
     companion object {
