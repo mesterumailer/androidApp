@@ -44,7 +44,7 @@ class SmsClassificationCache(
         "classifier-engine-v2|senderWeight=$senderWeight|" +
             rules.joinToString(separator = "\u001e") { it.toJson().toString() }
     )
-    private val entries = LinkedHashMap<Long, CacheEntry>()
+    private val entries = LinkedHashMap<Long, CacheEntry>(256, 0.75f, true)
     private val pendingWrites = LinkedHashMap<Long, CacheEntry>()
 
     init {
@@ -149,8 +149,12 @@ class SmsClassificationCache(
                        $COLUMN_RULES_FINGERPRINT, $COLUMN_CATEGORY_ID, $COLUMN_OTP_CODE,
                        $COLUMN_AMOUNT, $COLUMN_CONFIDENCE, $COLUMN_LAST_ACCESSED
                 FROM $TABLE_NAME
-                ORDER BY $COLUMN_LAST_ACCESSED DESC
-                LIMIT $MAX_ENTRIES
+                WHERE $COLUMN_ID IN (
+                    SELECT $COLUMN_ID FROM $TABLE_NAME
+                    ORDER BY $COLUMN_LAST_ACCESSED DESC
+                    LIMIT $MAX_ENTRIES
+                )
+                ORDER BY $COLUMN_LAST_ACCESSED ASC
                 """.trimIndent(),
                 null
             ).use { cursor ->
