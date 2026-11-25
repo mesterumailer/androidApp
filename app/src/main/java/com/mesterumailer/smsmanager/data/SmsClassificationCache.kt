@@ -113,8 +113,6 @@ class SmsClassificationCache(
                         put(COLUMN_ADDRESS_HASH, entry.addressHash)
                         put(COLUMN_RULES_FINGERPRINT, entry.rulesFingerprint)
                         put(COLUMN_CATEGORY_ID, entry.categoryId)
-                        putNull(COLUMN_OTP_CODE)
-                        putNull(COLUMN_AMOUNT)
                         put(COLUMN_CONFIDENCE, entry.confidence)
                         put(COLUMN_LAST_ACCESSED, entry.lastAccessed)
                     }
@@ -227,8 +225,6 @@ class SmsClassificationCache(
         private const val COLUMN_ADDRESS_HASH = "address_hash"
         private const val COLUMN_RULES_FINGERPRINT = "rules_fingerprint"
         private const val COLUMN_CATEGORY_ID = "category_id"
-        private const val COLUMN_OTP_CODE = "otp_code"
-        private const val COLUMN_AMOUNT = "amount"
         private const val COLUMN_CONFIDENCE = "confidence"
         private const val COLUMN_LAST_ACCESSED = "last_accessed"
     }
