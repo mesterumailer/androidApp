@@ -253,12 +253,17 @@ class MainActivity : BaseActivity() {
         val blockFilter = SmsBlockFilter(blockSettings.blockedSenders, blockSettings.blockedContent)
 
         processingExecutor.execute {
+            val renderPreparationStartedAt = SystemClock.elapsedRealtime()
             val unblocked = source.filterNot { blockFilter.isBlocked(it.address, it.body) }
             val trashedKeys = SmsTrashRepository(this).getKeys()
             val available = unblocked.filterNot { SmsTrashRepository.keyFor(it) in trashedKeys }
             val filtered = SmsInboxFilter.filter(available, visibleIds, query)
             val ordered = sortForDisplay(filtered)
             val linkifiedBodies = ordered.associate { it.id to linkifyBody(it.body) }
+            Log.d(
+                INBOX_PERF_TAG,
+                "Filter preparation: source=${source.size}, visible=${ordered.size}, elapsedMs=${SystemClock.elapsedRealtime() - renderPreparationStartedAt}"
+            )
             runOnUiThread {
                 if (token != processingToken || isFinishing) return@runOnUiThread
                 renderFilteredMessages(ordered, available.size, query, token, linkifiedBodies)
@@ -273,6 +278,7 @@ class MainActivity : BaseActivity() {
         token: Long,
         linkifiedBodies: Map<Long, CharSequence> = emptyMap()
     ) {
+        val renderStartedAt = SystemClock.elapsedRealtime()
         listContainer.removeAllViews()
         statusView.text = if (query.isBlank()) {
             visibleMessages.size.toString() + " پیامک"
@@ -300,7 +306,15 @@ class MainActivity : BaseActivity() {
             }
             index = end
             updateSelectionBar(visibleMessages)
-            if (index < visibleMessages.size) listContainer.post { appendChunk() } else endProcessing()
+            if (index < visibleMessages.size) {
+                listContainer.post { appendChunk() }
+            } else {
+                Log.d(
+                    INBOX_PERF_TAG,
+                    "Rows rendered: rows=$index, elapsedMs=${SystemClock.elapsedRealtime() - renderStartedAt}"
+                )
+                endProcessing()
+            }
         }
         appendChunk()
     }
@@ -902,6 +916,10 @@ class MainActivity : BaseActivity() {
                         accumulated.size < targetCount
                     ) {
                         val partialMessages = applyMessageOverrides(accumulated.toList())
+                        Log.d(
+                            INBOX_PERF_TAG,
+                            "Inbox preview ready: displayedCandidateCount=${partialMessages.size}, elapsedMs=${SystemClock.elapsedRealtime() - loadStartedAt}"
+                        )
                         val partialRenderQueued = CountDownLatch(1)
                         runOnUiThread {
                             try {
