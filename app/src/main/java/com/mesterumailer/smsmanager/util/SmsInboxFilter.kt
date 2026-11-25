@@ -2,8 +2,24 @@ package com.mesterumailer.smsmanager.util
 
 import com.mesterumailer.smsmanager.model.SmsCategory
 import com.mesterumailer.smsmanager.model.SmsMessage
+import java.util.LinkedHashMap
 
 object SmsInboxFilter {
+    private data class SearchIndex(
+        val originalBody: String,
+        val originalAddress: String,
+        val normalizedBody: String,
+        val normalizedAddress: String
+    )
+
+    // Keeps a small in-memory index for the latest messages so refresh/filter changes
+    // do not repeatedly normalize the same Persian/Arabic text.
+    private const val MAX_SEARCH_INDEX_ENTRIES = 600
+    private val searchIndex = object : LinkedHashMap<Long, SearchIndex>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, SearchIndex>?): Boolean =
+            size > MAX_SEARCH_INDEX_ENTRIES
+    }
+
     fun filter(
         messages: List<SmsMessage>,
         visibleCategoryIds: Set<String>,
@@ -12,10 +28,34 @@ object SmsInboxFilter {
         val normalizedQuery = normalize(query)
         return messages.filter { message ->
             message.analysis.categoryId in visibleCategoryIds &&
-                (normalizedQuery.isBlank() ||
-                    normalize(message.body).contains(normalizedQuery) ||
-                    normalize(message.address).contains(normalizedQuery))
+                matchesNormalizedQuery(message, normalizedQuery)
         }
+    }
+
+    /**
+     * Accepts an already-normalized query. This is also used while scanning SMS Provider
+     * results so the same message text is normalized only once per message id.
+     */
+    fun matchesNormalizedQuery(message: SmsMessage, normalizedQuery: String): Boolean {
+        if (normalizedQuery.isBlank()) return true
+        val index = synchronized(searchIndex) {
+            val existing = searchIndex[message.id]
+            if (existing != null &&
+                existing.originalBody == message.body &&
+                existing.originalAddress == message.address
+            ) {
+                existing
+            } else {
+                SearchIndex(
+                    originalBody = message.body,
+                    originalAddress = message.address,
+                    normalizedBody = normalize(message.body),
+                    normalizedAddress = normalize(message.address)
+                ).also { searchIndex[message.id] = it }
+            }
+        }
+        return index.normalizedBody.contains(normalizedQuery) ||
+            index.normalizedAddress.contains(normalizedQuery)
     }
 
     @JvmName("filterByLegacyCategories")
