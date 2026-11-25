@@ -2,6 +2,8 @@ package com.mesterumailer.smsmanager.data
 
 import android.content.ContentResolver
 import android.provider.Telephony
+import android.os.SystemClock
+import android.util.Log
 import com.mesterumailer.smsmanager.model.FilterRule
 import com.mesterumailer.smsmanager.model.SmsMessage
 import com.mesterumailer.smsmanager.util.SmsBlockFilter
@@ -55,6 +57,10 @@ class SmsRepository(
         val selection = clauses.takeIf { it.isNotEmpty() }?.joinToString(" AND ")
         val selectionArgs = args.takeIf { it.isNotEmpty() }?.toTypedArray()
 
+        val batchStartedAt = SystemClock.elapsedRealtime()
+        var cacheHits = 0
+        var cacheMisses = 0
+        var classificationElapsedMs = 0L
         var scanned = 0
         var lastTimestamp: Long? = null
         var lastId: Long? = null
@@ -83,15 +89,25 @@ class SmsRepository(
 
                 if (blockFilter.isBlocked(address, body)) continue
 
+                val classificationStartedAt = SystemClock.elapsedRealtime()
+                val cachedAnalysis = classificationCache?.get(id, address, body)
+                val analysis = if (cachedAnalysis != null) {
+                    cacheHits += 1
+                    cachedAnalysis
+                } else {
+                    cacheMisses += 1
+                    classifier.analyze(address, body).also { freshAnalysis ->
+                        classificationCache?.put(id, address, body, freshAnalysis)
+                    }
+                }
+                classificationElapsedMs += SystemClock.elapsedRealtime() - classificationStartedAt
+
                 val candidate = SmsMessage(
                     id = id,
                     address = address,
                     body = body,
                     timestamp = timestamp,
-                    analysis = classificationCache?.get(id, address, body)
-                        ?: classifier.analyze(address, body).also { analysis ->
-                            classificationCache?.put(id, address, body, analysis)
-                        }
+                    analysis = analysis
                 )
                 if (shouldInclude(candidate)) messages += candidate
             }
@@ -99,6 +115,11 @@ class SmsRepository(
         }
 
         classificationCache?.flush()
+        Log.d(
+            "SmsInboxPerf",
+            "Repository batch: scanned=$scanned, cached=$cacheHits, classified=$cacheMisses, " +
+                "classificationMs=$classificationElapsedMs, totalMs=${SystemClock.elapsedRealtime() - batchStartedAt}"
+        )
         return SmsInboxBatch(messages, scanned, lastTimestamp, lastId, hasMore)
     }
 
