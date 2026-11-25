@@ -16,6 +16,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
+import android.util.Log
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
@@ -45,6 +47,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.mesterumailer.smsmanager.data.CategoryActivationRepository
 import com.mesterumailer.smsmanager.data.CategoryVisibilityRepository
 import com.mesterumailer.smsmanager.data.SmsBlockRepository
+import com.mesterumailer.smsmanager.data.SmsClassificationCache
 import com.mesterumailer.smsmanager.data.FilterRuleRepository
 import com.mesterumailer.smsmanager.data.MessageOverrideRepository
 import com.mesterumailer.smsmanager.data.SmsRepository
@@ -62,6 +65,8 @@ import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
 import java.util.Calendar
 import java.util.concurrent.Executors
+
+private const val INBOX_PERF_TAG = "SmsInboxPerf"
 
 class MainActivity : BaseActivity() {
     private val smsPermissionRequestCode = 1001
@@ -228,7 +233,13 @@ class MainActivity : BaseActivity() {
 
     private fun requestRender(message: String = "در حال پردازش...") {
         if (!::listContainer.isInitialized) return
-        beginProcessing(message)
+        // Filtering and rebuilding the list must not place a full-screen overlay over
+        // the existing messages. Keep the previous snapshot usable until the new one is ready.
+        processingToken += 1L
+        processingShowTask?.let(processingHandler::removeCallbacks)
+        processingShowTask = null
+        processingMessage.text = message
+        if (::processingOverlay.isInitialized) processingOverlay.visibility = View.GONE
         val token = processingToken
         val source = currentMessages
         val activeIds = activeCategoryDefinitions().map { it.first }
@@ -775,16 +786,23 @@ class MainActivity : BaseActivity() {
     }
 
     private fun loadInbox() {
-        // A new inbox load supersedes any earlier scan, including one awaiting a dialog choice.
+        // Keep the current list interactive while the next Inbox snapshot is being prepared.
         val loadToken = ++inboxLoadToken
         if (!hasRequiredSmsPermissions()) {
             statusView.text = "برای خواندن Inbox باید اجازه دسترسی به پیامک‌ها را بدهید."
             return
         }
 
-        beginProcessing("در حال خواندن پیامک‌ها...")
+        val loadStartedAt = SystemClock.elapsedRealtime()
+        if (currentMessages.isEmpty()) {
+            beginProcessing("در حال خواندن پیامک‌ها...")
+        } else {
+            statusView.text = "در حال به‌روزرسانی پیام‌ها..."
+        }
+
         val searchQuery = searchInput.text?.toString().orEmpty()
         processingExecutor.execute {
+            var activeRepository: SmsRepository? = null
             try {
                 val rules = FilterRuleRepository(this).loadRules()
                 val readSettings = SmsSettingsRepository(this).getInboxReadSettings()
@@ -802,18 +820,30 @@ class MainActivity : BaseActivity() {
                 val trashedKeys = SmsTrashRepository(this).getKeys()
                 val messageOverrides = MessageOverrideRepository(this)
                 val normalizedQuery = SmsInboxFilter.normalize(searchQuery)
+                val senderWeight = FilterRuleRepository(this@MainActivity).getSenderWeight()
                 val repository = SmsRepository(
                     contentResolver,
                     rules,
                     blockFilter,
-                    FilterRuleRepository(this@MainActivity).getSenderWeight()
+                    senderWeight,
+                    SmsClassificationCache(applicationContext, rules, senderWeight)
                 )
+                activeRepository = repository
+
                 val accumulated = mutableListOf<SmsMessage>()
                 val targetCount = readSettings.limit.coerceIn(1, SmsSettingsRepository.MAX_INBOX_LIMIT)
+                var searchFinished = false
 
                 var fetchNextBatch: ((Long?, Long?, Int) -> Unit)? = null
                 fun finishSearch() {
+                    if (searchFinished) return
+                    searchFinished = true
+                    repository.close()
                     val messages = applyMessageOverrides(accumulated.toList())
+                    Log.d(
+                        INBOX_PERF_TAG,
+                        "Inbox complete: displayedCandidateCount=${messages.size}, elapsedMs=${SystemClock.elapsedRealtime() - loadStartedAt}"
+                    )
                     runOnUiThread {
                         if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                         currentRules = rules
@@ -827,26 +857,65 @@ class MainActivity : BaseActivity() {
                     }
                 }
 
-                fetchNextBatch = { beforeTimestamp, beforeId, scannedSoFar ->
+                fetchNextBatch = fetchNextBatch@{ beforeTimestamp, beforeId, scannedSoFar ->
+                    if (loadToken != inboxLoadToken || isFinishing) {
+                        repository.close()
+                        return@fetchNextBatch
+                    }
+
+                    // Show the newest 20 matches first, then complete the initial 100-candidate
+                    // scan in the background. The rest of the list stays usable during this work.
+                    val batchSize = when {
+                        scannedSoFar == 0 -> minOf(20, SmsRepository.DEFAULT_SCAN_BATCH_SIZE)
+                        scannedSoFar < SmsRepository.DEFAULT_SCAN_BATCH_SIZE ->
+                            SmsRepository.DEFAULT_SCAN_BATCH_SIZE - scannedSoFar
+                        else -> SmsRepository.DEFAULT_SCAN_BATCH_SIZE
+                    }
+                    val batchStartedAt = SystemClock.elapsedRealtime()
                     val batch = repository.getInboxBatch(
-                        batchSize = SmsRepository.DEFAULT_SCAN_BATCH_SIZE,
+                        batchSize = batchSize,
                         untilTimestampExclusive = untilTimestampExclusive,
                         beforeTimestamp = beforeTimestamp,
                         beforeId = beforeId
                     ) { candidate ->
                         val finalCategoryId = messageOverrides.getCategoryId(candidate.id)
                             ?: candidate.analysis.categoryId
-                        val queryMatches = normalizedQuery.isBlank() ||
-                            SmsInboxFilter.normalize(candidate.body).contains(normalizedQuery) ||
-                            SmsInboxFilter.normalize(candidate.address).contains(normalizedQuery)
+                        val queryMatches = SmsInboxFilter.matchesNormalizedQuery(candidate, normalizedQuery)
                         finalCategoryId in readyCategoryIds &&
                             SmsTrashRepository.keyFor(candidate) !in trashedKeys &&
                             queryMatches
                     }
+                    val totalScanned = scannedSoFar + batch.scannedCount
+                    Log.d(
+                        INBOX_PERF_TAG,
+                        "Inbox batch: scanned=${batch.scannedCount}, matched=${batch.messages.size}, elapsedMs=${SystemClock.elapsedRealtime() - batchStartedAt}"
+                    )
+
                     val remainingSlots = (targetCount - accumulated.size).coerceAtLeast(0)
                     accumulated += batch.messages.take(remainingSlots)
-                    val totalScanned = scannedSoFar + batch.scannedCount
-                    if (accumulated.size >= targetCount || !batch.hasMore) {
+
+                    if (scannedSoFar == 0 &&
+                        totalScanned < SmsRepository.DEFAULT_SCAN_BATCH_SIZE &&
+                        batch.hasMore &&
+                        accumulated.size < targetCount
+                    ) {
+                        val partialMessages = applyMessageOverrides(accumulated.toList())
+                        runOnUiThread {
+                            if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
+                            currentRules = rules
+                            currentMessages = partialMessages
+                            refreshSortButton()
+                            createCategoryFilterButtons()
+                            statusView.contentDescription = buildReadWindowSummary(readSettings)
+                            statusView.text = "${partialMessages.size} پیام؛ در حال تکمیل فهرست..."
+                            requestRender("در حال نمایش پیام‌های جدید...")
+                        }
+                        // Queue the remainder after the partial render so the user can already
+                        // open/read the newest messages while older candidates are classified.
+                        processingExecutor.execute {
+                            fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
+                        }
+                    } else if (accumulated.size >= targetCount || !batch.hasMore) {
                         finishSearch()
                     } else {
                         runOnUiThread {
@@ -860,7 +929,7 @@ class MainActivity : BaseActivity() {
                                 )
                                 .setPositiveButton("ادامه جست‌وجو") { _, _ ->
                                     if (loadToken == inboxLoadToken && !isFinishing) {
-                                        beginProcessing("در حال بررسی ${SmsRepository.DEFAULT_SCAN_BATCH_SIZE} پیامک بعدی...")
+                                        beginProcessing("در حال بررسی پیامک‌های بعدی...")
                                         processingExecutor.execute {
                                             fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
                                         }
@@ -879,12 +948,15 @@ class MainActivity : BaseActivity() {
 
                 fetchNextBatch?.invoke(null, null, 0)
             } catch (securityException: SecurityException) {
+                activeRepository?.close()
                 runOnUiThread {
                     if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                     endProcessing()
                     statusView.text = "دسترسی به پیامک‌ها رد شده است."
                 }
             } catch (exception: Exception) {
+                activeRepository?.close()
+                Log.e(INBOX_PERF_TAG, "Inbox refresh failed", exception)
                 runOnUiThread {
                     if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
                     endProcessing()
