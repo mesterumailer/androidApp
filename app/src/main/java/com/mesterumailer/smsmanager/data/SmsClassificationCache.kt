@@ -33,8 +33,6 @@ class SmsClassificationCache(
         val addressHash: String,
         val rulesFingerprint: String,
         val categoryId: String,
-        val otpCode: String?,
-        val amount: String?,
         val confidence: Float,
         val lastAccessed: Long
     )
@@ -58,7 +56,8 @@ class SmsClassificationCache(
             val entry = entries[messageId] ?: return null
             if (entry.bodyHash != bodyHash ||
                 entry.addressHash != addressHash ||
-                entry.rulesFingerprint != rulesFingerprint
+                entry.rulesFingerprint != rulesFingerprint ||
+                entry.categoryId == SmsCategory.OTP.id
             ) return null
 
             val touched = entry.copy(lastAccessed = System.currentTimeMillis())
@@ -67,22 +66,23 @@ class SmsClassificationCache(
             return SmsAnalysis(
                 category = SmsCategory.fromId(entry.categoryId),
                 categoryId = entry.categoryId,
-                otpCode = entry.otpCode,
-                amount = entry.amount,
+                otpCode = null,
+                amount = null,
                 confidence = entry.confidence
             )
         }
     }
 
     fun put(messageId: Long, address: String, body: String, analysis: SmsAnalysis) {
+        // OTP values are sensitive. Do not persist either their code or a reusable cached
+        // OTP classification; recompute the handful of OTP messages on the next refresh.
+        if (analysis.categoryId == SmsCategory.OTP.id) return
         val entry = CacheEntry(
             messageId = messageId,
             bodyHash = sha256(body),
             addressHash = sha256(address),
             rulesFingerprint = rulesFingerprint,
             categoryId = analysis.categoryId,
-            otpCode = analysis.otpCode,
-            amount = analysis.amount,
             confidence = analysis.confidence,
             lastAccessed = System.currentTimeMillis()
         )
@@ -113,8 +113,8 @@ class SmsClassificationCache(
                         put(COLUMN_ADDRESS_HASH, entry.addressHash)
                         put(COLUMN_RULES_FINGERPRINT, entry.rulesFingerprint)
                         put(COLUMN_CATEGORY_ID, entry.categoryId)
-                        put(COLUMN_OTP_CODE, entry.otpCode)
-                        put(COLUMN_AMOUNT, entry.amount)
+                        putNull(COLUMN_OTP_CODE)
+                        putNull(COLUMN_AMOUNT)
                         put(COLUMN_CONFIDENCE, entry.confidence)
                         put(COLUMN_LAST_ACCESSED, entry.lastAccessed)
                     }
@@ -146,8 +146,8 @@ class SmsClassificationCache(
             readableDatabase.rawQuery(
                 """
                 SELECT $COLUMN_ID, $COLUMN_BODY_HASH, $COLUMN_ADDRESS_HASH,
-                       $COLUMN_RULES_FINGERPRINT, $COLUMN_CATEGORY_ID, $COLUMN_OTP_CODE,
-                       $COLUMN_AMOUNT, $COLUMN_CONFIDENCE, $COLUMN_LAST_ACCESSED
+                       $COLUMN_RULES_FINGERPRINT, $COLUMN_CATEGORY_ID,
+                       $COLUMN_CONFIDENCE, $COLUMN_LAST_ACCESSED
                 FROM $TABLE_NAME
                 WHERE $COLUMN_ID IN (
                     SELECT $COLUMN_ID FROM $TABLE_NAME
@@ -163,8 +163,6 @@ class SmsClassificationCache(
                 val addressHash = cursor.getColumnIndexOrThrow(COLUMN_ADDRESS_HASH)
                 val fingerprint = cursor.getColumnIndexOrThrow(COLUMN_RULES_FINGERPRINT)
                 val category = cursor.getColumnIndexOrThrow(COLUMN_CATEGORY_ID)
-                val otp = cursor.getColumnIndexOrThrow(COLUMN_OTP_CODE)
-                val amount = cursor.getColumnIndexOrThrow(COLUMN_AMOUNT)
                 val confidence = cursor.getColumnIndexOrThrow(COLUMN_CONFIDENCE)
                 val accessed = cursor.getColumnIndexOrThrow(COLUMN_LAST_ACCESSED)
 
@@ -176,8 +174,6 @@ class SmsClassificationCache(
                             addressHash = cursor.getString(addressHash),
                             rulesFingerprint = cursor.getString(fingerprint),
                             categoryId = cursor.getString(category),
-                            otpCode = if (cursor.isNull(otp)) null else cursor.getString(otp),
-                            amount = if (cursor.isNull(amount)) null else cursor.getString(amount),
                             confidence = cursor.getFloat(confidence),
                             lastAccessed = cursor.getLong(accessed)
                         )
@@ -199,8 +195,6 @@ class SmsClassificationCache(
                 $COLUMN_ADDRESS_HASH TEXT NOT NULL,
                 $COLUMN_RULES_FINGERPRINT TEXT NOT NULL,
                 $COLUMN_CATEGORY_ID TEXT NOT NULL,
-                $COLUMN_OTP_CODE TEXT,
-                $COLUMN_AMOUNT TEXT,
                 $COLUMN_CONFIDENCE REAL NOT NULL,
                 $COLUMN_LAST_ACCESSED INTEGER NOT NULL
             )
@@ -224,7 +218,7 @@ class SmsClassificationCache(
 
     companion object {
         private const val DATABASE_NAME = "sms_classification_cache.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
         private const val TABLE_NAME = "sms_classification_cache"
         private const val MAX_ENTRIES = 1200
 
