@@ -64,7 +64,9 @@ import com.mesterumailer.smsmanager.util.SmsInboxFilter
 import com.mesterumailer.smsmanager.util.SmsTextProcessor
 import java.util.Date
 import java.util.Calendar
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 private const val INBOX_PERF_TAG = "SmsInboxPerf"
 
@@ -900,18 +902,24 @@ class MainActivity : BaseActivity() {
                         accumulated.size < targetCount
                     ) {
                         val partialMessages = applyMessageOverrides(accumulated.toList())
+                        val partialRenderQueued = CountDownLatch(1)
                         runOnUiThread {
-                            if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
-                            currentRules = rules
-                            currentMessages = partialMessages
-                            refreshSortButton()
-                            createCategoryFilterButtons()
-                            statusView.contentDescription = buildReadWindowSummary(readSettings)
-                            statusView.text = "${partialMessages.size} پیام؛ در حال تکمیل فهرست..."
-                            requestRender("در حال نمایش پیام‌های جدید...")
+                            try {
+                                if (loadToken != inboxLoadToken || isFinishing) return@runOnUiThread
+                                currentRules = rules
+                                currentMessages = partialMessages
+                                refreshSortButton()
+                                createCategoryFilterButtons()
+                                statusView.contentDescription = buildReadWindowSummary(readSettings)
+                                statusView.text = "${partialMessages.size} پیام؛ در حال تکمیل فهرست..."
+                                requestRender("در حال نمایش پیام‌های جدید...")
+                            } finally {
+                                partialRenderQueued.countDown()
+                            }
                         }
-                        // Queue the remainder after the partial render so the user can already
-                        // open/read the newest messages while older candidates are classified.
+                        // Ensure the partial render task enters the executor queue before the
+                        // remaining scan; this lets recent messages become readable first.
+                        runCatching { partialRenderQueued.await(1, TimeUnit.SECONDS) }
                         processingExecutor.execute {
                             fetchNextBatch?.invoke(batch.nextBeforeTimestamp, batch.nextBeforeId, totalScanned)
                         }
