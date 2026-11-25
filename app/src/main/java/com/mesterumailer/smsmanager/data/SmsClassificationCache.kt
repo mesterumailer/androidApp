@@ -89,6 +89,11 @@ class SmsClassificationCache(
         synchronized(lock) {
             entries[messageId] = entry
             pendingWrites[messageId] = entry
+            while (entries.size > MAX_ENTRIES) {
+                val oldestId = entries.keys.firstOrNull() ?: break
+                entries.remove(oldestId)
+                pendingWrites.remove(oldestId)
+            }
         }
     }
 
